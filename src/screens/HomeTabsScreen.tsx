@@ -8,9 +8,11 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
+import {DateTimePickerAndroid} from '@react-native-community/datetimepicker';
 
 const Tab = createBottomTabNavigator();
 type HomeTabsScreenProps = {
@@ -323,6 +325,18 @@ function HomeTab() {
 function LeavesTab() {
   type LeaveStatus = 'Approved' | 'Pending' | 'Canceled';
   type LeaveFilter = 'All' | LeaveStatus;
+  type LeaveItem = {
+    id: string;
+    leaveTitle: string;
+    leaveType: string;
+    dateRange: string;
+    reason: string;
+    appliedOnDate: string;
+    status: LeaveStatus;
+    applyDays: string;
+    leaveBalance: string;
+    approvedBy: string;
+  };
 
   const leaveStats = [
     {
@@ -371,17 +385,14 @@ function LeavesTab() {
     },
   ];
 
-  const leaveHistory: Array<{
-    id: string;
-    dateRange: string;
-    status: LeaveStatus;
-    applyDays: string;
-    leaveBalance: string;
-    approvedBy: string;
-  }> = [
+  const leaveHistory: LeaveItem[] = [
     {
       id: 'lv-001',
+      leaveTitle: 'Family Function',
+      leaveType: 'Casual Leave',
       dateRange: 'Mar 10, 2023 - Mar 12, 2023',
+      reason: 'Family event out of town, so I need leave for two days.',
+      appliedOnDate: 'Mar 05, 2023',
       status: 'Approved',
       applyDays: '2 Days',
       leaveBalance: '19',
@@ -389,7 +400,11 @@ function LeavesTab() {
     },
     {
       id: 'lv-002',
+      leaveTitle: 'Health Checkup',
+      leaveType: 'Sick Leave',
       dateRange: 'Apr 02, 2023 - Apr 03, 2023',
+      reason: 'Scheduled medical checkup and rest as advised by doctor.',
+      appliedOnDate: 'Mar 30, 2023',
       status: 'Approved',
       applyDays: '2 Days',
       leaveBalance: '17',
@@ -397,7 +412,11 @@ function LeavesTab() {
     },
     {
       id: 'lv-003',
+      leaveTitle: 'Personal Work',
+      leaveType: 'Casual Leave',
       dateRange: 'May 18, 2023 - May 18, 2023',
+      reason: 'Need one day leave for important personal documentation work.',
+      appliedOnDate: 'May 15, 2023',
       status: 'Pending',
       applyDays: '1 Day',
       leaveBalance: '16',
@@ -405,7 +424,11 @@ function LeavesTab() {
     },
     {
       id: 'lv-004',
+      leaveTitle: 'Vacation Trip',
+      leaveType: 'Earned Leave',
       dateRange: 'Jun 01, 2023 - Jun 03, 2023',
+      reason: 'Short vacation planned with family.',
+      appliedOnDate: 'May 22, 2023',
       status: 'Approved',
       applyDays: '3 Days',
       leaveBalance: '13',
@@ -413,7 +436,11 @@ function LeavesTab() {
     },
     {
       id: 'lv-005',
+      leaveTitle: 'Emergency Leave',
+      leaveType: 'Casual Leave',
       dateRange: 'Jul 12, 2023 - Jul 13, 2023',
+      reason: 'Unexpected emergency at home.',
+      appliedOnDate: 'Jul 10, 2023',
       status: 'Canceled',
       applyDays: '2 Days',
       leaveBalance: '13',
@@ -422,15 +449,278 @@ function LeavesTab() {
   ];
   const [activeFilter, setActiveFilter] = useState<LeaveFilter>('All');
   const [showFilterOptions, setShowFilterOptions] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<LeaveItem | null>(null);
+  const [leaveTitle, setLeaveTitle] = useState('');
+  const [leaveType, setLeaveType] = useState('Casual Leave');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [showLeaveTypeOptions, setShowLeaveTypeOptions] = useState(false);
   const filterOptions: LeaveFilter[] = ['All', 'Approved', 'Pending', 'Canceled'];
+  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Other'];
 
   const filteredLeaveHistory = leaveHistory.filter(item =>
     activeFilter === 'All' ? true : item.status === activeFilter,
   );
 
+  const formatDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const parseInputDate = (value: string) => {
+    const [day, month, year] = value.split('/').map(Number);
+    if (!day || !month || !year) {
+      return new Date();
+    }
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  const openDatePicker = (field: 'start' | 'end') => {
+    const initialValue =
+      field === 'start' ? parseInputDate(startDate) : parseInputDate(endDate);
+
+    DateTimePickerAndroid.open({
+      value: initialValue,
+      mode: 'date',
+      is24Hour: true,
+      onChange: (_, selectedDate) => {
+        if (!selectedDate) {
+          return;
+        }
+        const formatted = formatDate(selectedDate);
+        if (field === 'start') {
+          setStartDate(formatted);
+          return;
+        }
+        setEndDate(formatted);
+      },
+    });
+  };
+
+  const getStatusStyles = (status: LeaveStatus) => {
+    if (status === 'Approved') {
+      return {bg: 'bg-emerald-100', text: 'text-emerald-700'};
+    }
+    if (status === 'Pending') {
+      return {bg: 'bg-amber-100', text: 'text-amber-700'};
+    }
+    return {bg: 'bg-rose-100', text: 'text-rose-700'};
+  };
+
+  if (selectedLeave) {
+    const statusStyle = getStatusStyles(selectedLeave.status);
+
+    return (
+      <View className="flex-1 bg-slate-50 pt-14">
+        <View className="flex-row items-center px-5 pb-3">
+          <Pressable
+            onPress={() => setSelectedLeave(null)}
+            className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white">
+            <Ionicons name="arrow-back" size={18} color="#0f172a" />
+          </Pressable>
+          <Text className="text-2xl font-bold text-slate-900">Leave Details</Text>
+        </View>
+
+        <ScrollView className="px-5" showsVerticalScrollIndicator={false}>
+          <View className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-xs font-medium text-slate-500">Leave Title</Text>
+                <Text className="mt-1 text-[22px] font-bold leading-7 text-slate-900">
+                  {selectedLeave.leaveTitle}
+                </Text>
+                <Text className="mt-2 text-sm font-medium text-slate-500">
+                  {selectedLeave.dateRange}
+                </Text>
+              </View>
+              <View className={`rounded-full px-3 py-1.5 ${statusStyle.bg}`}>
+                <Text className={`text-sm font-semibold ${statusStyle.text}`}>
+                  {selectedLeave.status}
+                </Text>
+              </View>
+            </View>
+
+            <View className="mt-4 flex-row items-center rounded-xl bg-slate-50 px-3 py-3">
+              <View className="h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+                <Ionicons name="document-text-outline" size={18} color="#2563eb" />
+              </View>
+              <View className="ml-3">
+                <Text className="text-xs text-slate-500">Leave Type</Text>
+                <Text className="text-base font-semibold text-slate-900">
+                  {selectedLeave.leaveType}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-3 flex-row flex-wrap justify-between">
+            <View className="mb-3 w-[48.5%] rounded-2xl border border-slate-100 bg-white p-3.5">
+              <Text className="text-xs text-slate-500">Applied On</Text>
+              <Text className="mt-1 text-[15px] font-semibold text-slate-900">
+                {selectedLeave.appliedOnDate}
+              </Text>
+            </View>
+            <View className="mb-3 w-[48.5%] rounded-2xl border border-slate-100 bg-white p-3.5">
+              <Text className="text-xs text-slate-500">Status</Text>
+              <Text className="mt-1 text-[15px] font-semibold text-slate-900">
+                {selectedLeave.status}
+              </Text>
+            </View>
+            {selectedLeave.status === 'Approved' && (
+              <View className="mb-3 w-full rounded-2xl border border-slate-100 bg-white p-3.5">
+                <Text className="text-xs text-slate-500">Approved By</Text>
+                <Text className="mt-1 text-[15px] font-semibold text-slate-900">
+                  {selectedLeave.approvedBy}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View className="mb-10 rounded-2xl border border-slate-100 bg-white p-4">
+            <View className="flex-row items-center">
+              <View className="h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
+                <Ionicons name="chatbox-ellipses-outline" size={18} color="#6d28d9" />
+              </View>
+              <Text className="ml-2.5 text-base font-semibold text-slate-900">Reason</Text>
+            </View>
+            <Text className="mt-3 text-[15px] leading-7 text-slate-700">
+              {selectedLeave.reason}
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (showApplyModal) {
+    return (
+      <View className="flex-1 bg-slate-50 pt-14">
+        <View className="flex-row items-center px-5 pb-3">
+          <Pressable
+            onPress={() => setShowApplyModal(false)}
+            className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white">
+            <Ionicons name="arrow-back" size={18} color="#0f172a" />
+          </Pressable>
+          <Text className="text-2xl font-bold text-slate-900">Apply Leave</Text>
+        </View>
+
+        <ScrollView className="px-5" showsVerticalScrollIndicator={false}>
+          <View className="mb-3">
+            <Text className="mb-2 text-sm font-medium text-slate-700">Leave Title</Text>
+            <TextInput
+              value={leaveTitle}
+              onChangeText={setLeaveTitle}
+              placeholder="Enter leave title"
+              placeholderTextColor="#94a3b8"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900"
+            />
+          </View>
+
+          <View className="relative z-30 mb-3">
+            <Text className="mb-2 text-sm font-medium text-slate-700">Leave Type</Text>
+            <Pressable
+              onPress={() => setShowLeaveTypeOptions(prev => !prev)}
+              className="flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+              <Text className="text-base text-slate-900">{leaveType}</Text>
+              <Ionicons
+                name={showLeaveTypeOptions ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color="#64748b"
+              />
+            </Pressable>
+
+            {showLeaveTypeOptions && (
+              <View className="absolute left-0 right-0 top-[76px] rounded-xl border border-slate-200 bg-white py-1 shadow-sm">
+                {leaveTypes.map(type => {
+                  const isSelected = leaveType === type;
+                  return (
+                    <Pressable
+                      key={type}
+                      onPress={() => {
+                        setLeaveType(type);
+                        setShowLeaveTypeOptions(false);
+                      }}
+                      className={`flex-row items-center justify-between px-4 py-3 ${
+                        isSelected ? 'bg-blue-50' : 'bg-white'
+                      }`}>
+                      <Text
+                        className={`text-sm font-medium ${
+                          isSelected ? 'text-blue-700' : 'text-slate-700'
+                        }`}>
+                        {type}
+                      </Text>
+                      {isSelected && <Ionicons name="checkmark" size={16} color="#2563eb" />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          <View className="mb-3 flex-row justify-between">
+            <View className="w-[48.5%]">
+              <Text className="mb-2 text-sm font-medium text-slate-700">Starting Date</Text>
+              <Pressable
+                onPress={() => openDatePicker('start')}
+                className="flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+                <Text className={startDate ? 'text-base text-slate-900' : 'text-base text-slate-400'}>
+                  {startDate || 'DD/MM/YYYY'}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color="#94a3b8" />
+              </Pressable>
+            </View>
+            <View className="w-[48.5%]">
+              <Text className="mb-2 text-sm font-medium text-slate-700">Ending Date</Text>
+              <Pressable
+                onPress={() => openDatePicker('end')}
+                className="flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+                <Text className={endDate ? 'text-base text-slate-900' : 'text-base text-slate-400'}>
+                  {endDate || 'DD/MM/YYYY'}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color="#94a3b8" />
+              </Pressable>
+            </View>
+          </View>
+
+          <View className="mb-4">
+            <Text className="mb-2 text-sm font-medium text-slate-700">Reason of Leave</Text>
+            <TextInput
+              value={reason}
+              onChangeText={setReason}
+              multiline
+              textAlignVertical="top"
+              placeholder="Write your reason..."
+              placeholderTextColor="#94a3b8"
+              className="min-h-[130px] rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900"
+            />
+          </View>
+
+          <Pressable
+            onPress={() => setShowApplyModal(false)}
+            className="mb-10 items-center rounded-xl bg-blue-500 py-3.5">
+            <Text className="text-base font-semibold text-white">Submit Leave Request</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <ScrollView className="flex-1 bg-slate-50 px-5 pt-16">
-      <Text className="text-3xl font-bold text-slate-900">All Leaves</Text>
+      <View className="flex-row items-center justify-between">
+        <Text className="text-3xl font-bold text-slate-900">All Leaves</Text>
+        <Pressable
+          onPress={() => setShowApplyModal(true)}
+          className="flex-row items-center rounded-xl bg-blue-500 px-3.5 py-2">
+          <Ionicons name="add" size={16} color="#ffffff" />
+          <Text className="ml-1.5 text-xs font-semibold text-white">Apply Leave</Text>
+        </Pressable>
+      </View>
       <Text className="mt-1 text-sm text-slate-500">
         Overview of your leave status
       </Text>
@@ -506,22 +796,12 @@ function LeavesTab() {
         )}
 
         {filteredLeaveHistory.map(item => {
-          const statusBg =
-            item.status === 'Approved'
-              ? 'bg-emerald-100'
-              : item.status === 'Pending'
-                ? 'bg-amber-100'
-                : 'bg-rose-100';
-          const statusText =
-            item.status === 'Approved'
-              ? 'text-emerald-700'
-              : item.status === 'Pending'
-                ? 'text-amber-700'
-                : 'text-rose-700';
+          const statusStyle = getStatusStyles(item.status);
 
           return (
-            <View
+            <Pressable
               key={item.id}
+              onPress={() => setSelectedLeave(item)}
               className="mt-3 rounded-2xl border border-slate-100 bg-white p-3">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-2">
@@ -530,8 +810,8 @@ function LeavesTab() {
                     {item.dateRange}
                   </Text>
                 </View>
-                <View className={`rounded-lg px-2.5 py-1 ${statusBg}`}>
-                  <Text className={`text-xs font-semibold ${statusText}`}>
+                <View className={`rounded-lg px-2.5 py-1 ${statusStyle.bg}`}>
+                  <Text className={`text-xs font-semibold ${statusStyle.text}`}>
                     {item.status}
                   </Text>
                 </View>
@@ -559,7 +839,7 @@ function LeavesTab() {
                   </Text>
                 </View>
               </View>
-            </View>
+            </Pressable>
           );
         })}
 
