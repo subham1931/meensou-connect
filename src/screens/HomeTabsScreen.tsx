@@ -321,10 +321,258 @@ function HomeTab() {
 }
 
 function LeavesTab() {
+  type LeaveStatus = 'Approved' | 'Pending' | 'Canceled';
+  type LeaveFilter = 'All' | LeaveStatus;
+
+  const leaveStats = [
+    {
+      key: 'balance',
+      title: 'Leave Balance',
+      value: '12',
+      subtitle: 'Days Available',
+      icon: 'wallet-outline' as const,
+      iconColor: '#2563eb',
+      iconBg: 'bg-blue-100',
+      subtitleColor: 'text-slate-500',
+      topAccent: 'bg-blue-500',
+    },
+    {
+      key: 'approved',
+      title: 'Leave Approved',
+      value: '8',
+      subtitle: 'Approved',
+      icon: 'checkmark-done-outline' as const,
+      iconColor: '#059669',
+      iconBg: 'bg-emerald-100',
+      subtitleColor: 'text-emerald-600',
+      topAccent: 'bg-emerald-500',
+    },
+    {
+      key: 'pending',
+      title: 'Leave Pending',
+      value: '2',
+      subtitle: 'Awaiting Review',
+      icon: 'time-outline' as const,
+      iconColor: '#d97706',
+      iconBg: 'bg-amber-100',
+      subtitleColor: 'text-amber-600',
+      topAccent: 'bg-amber-500',
+    },
+    {
+      key: 'canceled',
+      title: 'Leave Canceled',
+      value: '1',
+      subtitle: 'Canceled',
+      icon: 'close-circle-outline' as const,
+      iconColor: '#e11d48',
+      iconBg: 'bg-rose-100',
+      subtitleColor: 'text-rose-600',
+      topAccent: 'bg-rose-500',
+    },
+  ];
+
+  const leaveHistory: Array<{
+    id: string;
+    dateRange: string;
+    status: LeaveStatus;
+    applyDays: string;
+    leaveBalance: string;
+    approvedBy: string;
+  }> = [
+    {
+      id: 'lv-001',
+      dateRange: 'Mar 10, 2023 - Mar 12, 2023',
+      status: 'Approved',
+      applyDays: '2 Days',
+      leaveBalance: '19',
+      approvedBy: 'Martin Deo',
+    },
+    {
+      id: 'lv-002',
+      dateRange: 'Apr 02, 2023 - Apr 03, 2023',
+      status: 'Approved',
+      applyDays: '2 Days',
+      leaveBalance: '17',
+      approvedBy: 'Emma Clark',
+    },
+    {
+      id: 'lv-003',
+      dateRange: 'May 18, 2023 - May 18, 2023',
+      status: 'Pending',
+      applyDays: '1 Day',
+      leaveBalance: '16',
+      approvedBy: 'Waiting',
+    },
+    {
+      id: 'lv-004',
+      dateRange: 'Jun 01, 2023 - Jun 03, 2023',
+      status: 'Approved',
+      applyDays: '3 Days',
+      leaveBalance: '13',
+      approvedBy: 'Martin Deo',
+    },
+    {
+      id: 'lv-005',
+      dateRange: 'Jul 12, 2023 - Jul 13, 2023',
+      status: 'Canceled',
+      applyDays: '2 Days',
+      leaveBalance: '13',
+      approvedBy: 'HR Team',
+    },
+  ];
+  const [activeFilter, setActiveFilter] = useState<LeaveFilter>('All');
+  const [showFilterOptions, setShowFilterOptions] = useState(false);
+  const filterOptions: LeaveFilter[] = ['All', 'Approved', 'Pending', 'Canceled'];
+
+  const filteredLeaveHistory = leaveHistory.filter(item =>
+    activeFilter === 'All' ? true : item.status === activeFilter,
+  );
+
   return (
-    <View className="flex-1 items-center justify-center bg-slate-50">
-      <Text className="text-2xl font-bold text-slate-900">Leaves</Text>
-    </View>
+    <ScrollView className="flex-1 bg-slate-50 px-5 pt-16">
+      <Text className="text-3xl font-bold text-slate-900">All Leaves</Text>
+      <Text className="mt-1 text-sm text-slate-500">
+        Overview of your leave status
+      </Text>
+
+      <View className="mt-4 flex-row flex-wrap justify-between">
+        {leaveStats.map(card => (
+          <View
+            key={card.key}
+            className="mb-3 w-[48.5%] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+            <View className={`h-1.5 w-full ${card.topAccent}`} />
+            <View className="p-3.5">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xs font-medium text-slate-500">{card.title}</Text>
+                <View
+                  className={`h-8 w-8 items-center justify-center rounded-lg ${card.iconBg}`}>
+                  <Ionicons name={card.icon} size={16} color={card.iconColor} />
+                </View>
+              </View>
+              <Text className="mt-2 text-[24px] font-bold text-slate-900">{card.value}</Text>
+              <Text className={`mt-0.5 text-xs font-medium ${card.subtitleColor}`}>
+                {card.subtitle}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View className="mt-2">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-xl font-bold text-slate-900">Leave History</Text>
+          <Pressable
+            onPress={() => setShowFilterOptions(prev => !prev)}
+            className={`h-9 w-9 items-center justify-center rounded-lg border bg-white ${
+              showFilterOptions || activeFilter !== 'All'
+                ? 'border-blue-200'
+                : 'border-slate-200'
+            }`}>
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={showFilterOptions || activeFilter !== 'All' ? '#2563eb' : '#334155'}
+            />
+          </Pressable>
+        </View>
+        <Text className="mt-1 text-sm text-slate-500">
+          Recently requested leaves
+        </Text>
+
+        {showFilterOptions && (
+          <View className="mt-3 flex-row flex-wrap">
+            {filterOptions.map(option => {
+              const isActive = activeFilter === option;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => {
+                    setActiveFilter(option);
+                    setShowFilterOptions(false);
+                  }}
+                  className={`mr-2 mb-2 rounded-full border px-3 py-1.5 ${
+                    isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                  }`}>
+                  <Text
+                    className={`text-xs font-semibold ${
+                      isActive ? 'text-blue-700' : 'text-slate-600'
+                    }`}>
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {filteredLeaveHistory.map(item => {
+          const statusBg =
+            item.status === 'Approved'
+              ? 'bg-emerald-100'
+              : item.status === 'Pending'
+                ? 'bg-amber-100'
+                : 'bg-rose-100';
+          const statusText =
+            item.status === 'Approved'
+              ? 'text-emerald-700'
+              : item.status === 'Pending'
+                ? 'text-amber-700'
+                : 'text-rose-700';
+
+          return (
+            <View
+              key={item.id}
+              className="mt-3 rounded-2xl border border-slate-100 bg-white p-3">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-2">
+                  <Text className="text-[11px] text-slate-500">Date</Text>
+                  <Text className="mt-1 text-[16px] font-bold leading-5 text-slate-900">
+                    {item.dateRange}
+                  </Text>
+                </View>
+                <View className={`rounded-lg px-2.5 py-1 ${statusBg}`}>
+                  <Text className={`text-xs font-semibold ${statusText}`}>
+                    {item.status}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="my-3 h-px bg-slate-100" />
+
+              <View className="flex-row justify-between">
+                <View>
+                  <Text className="text-[11px] text-slate-500">Apply Days</Text>
+                  <Text className="mt-1 text-[14px] font-semibold text-slate-900">
+                    {item.applyDays}
+                  </Text>
+                </View>
+                <View>
+                  <Text className="text-[11px] text-slate-500">Leave Balance</Text>
+                  <Text className="mt-1 text-[14px] font-semibold text-slate-900">
+                    {item.leaveBalance}
+                  </Text>
+                </View>
+                <View>
+                  <Text className="text-[11px] text-slate-500">Approved By</Text>
+                  <Text className="mt-1 text-[14px] font-semibold text-slate-900">
+                    {item.approvedBy}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+
+        {filteredLeaveHistory.length === 0 && (
+          <View className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white py-6">
+            <Text className="text-center text-sm text-slate-500">
+              No leave records for this filter.
+            </Text>
+          </View>
+        )}
+      </View>
+      <View className="h-24" />
+    </ScrollView>
   );
 }
 
