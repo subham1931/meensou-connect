@@ -857,10 +857,96 @@ function LeavesTab() {
 }
 
 function HolidaysTab() {
+  const holidays = [
+    {
+      id: 'h-1',
+      isoDate: '2026-01-26',
+      date: 'January 26, 2026',
+      day: 'Monday',
+      title: 'Republic Day',
+    },
+    {
+      id: 'h-2',
+      isoDate: '2026-03-14',
+      date: 'March 14, 2026',
+      day: 'Saturday',
+      title: 'Holi',
+    },
+    {
+      id: 'h-3',
+      isoDate: '2026-04-10',
+      date: 'April 10, 2026',
+      day: 'Friday',
+      title: 'Good Friday',
+    },
+    {
+      id: 'h-4',
+      isoDate: '2026-08-15',
+      date: 'August 15, 2026',
+      day: 'Saturday',
+      title: 'Independence Day',
+    },
+    {
+      id: 'h-5',
+      isoDate: '2026-10-02',
+      date: 'October 02, 2026',
+      day: 'Friday',
+      title: 'Gandhi Jayanti',
+    },
+  ];
+
   return (
-    <View className="flex-1 items-center justify-center bg-slate-50">
-      <Text className="text-2xl font-bold text-slate-900">Holidays</Text>
-    </View>
+    <ScrollView className="flex-1 bg-slate-50 px-5 pt-16">
+      <Text className="text-3xl font-bold text-slate-900">Holidays</Text>
+      <Text className="mt-1 text-sm text-slate-500">
+        Upcoming holidays and office off days
+      </Text>
+
+      <View className="mt-4">
+        {holidays.map(item => {
+          const today = new Date();
+          const currentDate = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate(),
+          );
+          const holidayDate = new Date(item.isoDate);
+          const isUpcoming = holidayDate >= currentDate;
+          const accentClass = isUpcoming ? 'bg-blue-500' : 'bg-slate-300';
+          const cardClass = isUpcoming ? 'bg-blue-50' : 'bg-slate-100';
+          const dateTextClass = isUpcoming ? 'text-slate-800' : 'text-slate-500';
+          const dayTextClass = isUpcoming ? 'text-blue-300' : 'text-slate-400';
+          const titleTextClass = isUpcoming ? 'text-slate-900' : 'text-slate-500';
+          const iconColor = isUpcoming ? '#334155' : '#94a3b8';
+
+          return (
+            <View
+              key={item.id}
+              className={`mb-3 overflow-hidden rounded-2xl ${cardClass}`}>
+              <View className="flex-row">
+                <View className={`w-1.5 ${accentClass}`} />
+                <View className="flex-1 px-4 py-3.5">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      <Ionicons name="calendar-outline" size={15} color={iconColor} />
+                      <Text className={`ml-2 text-[13px] font-semibold ${dateTextClass}`}>
+                        {item.date}
+                      </Text>
+                    </View>
+                    <Text className={`text-[13px] ${dayTextClass}`}>{item.day}</Text>
+                  </View>
+                  <Text className={`mt-1.5 text-[16px] font-bold leading-6 ${titleTextClass}`}>
+                    {item.title}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      <View className="h-24" />
+    </ScrollView>
   );
 }
 
