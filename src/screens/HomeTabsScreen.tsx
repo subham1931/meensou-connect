@@ -1,7 +1,15 @@
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {Image, Pressable, ScrollView, Text, View} from 'react-native';
+import {
+  Animated,
+  Image,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 
 const Tab = createBottomTabNavigator();
@@ -24,12 +32,125 @@ function HomeTab() {
 
   const todayKey = new Date().toDateString();
   const [selectedDate, setSelectedDate] = useState(todayKey);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const getDayLabel = (date: Date) =>
     date.toLocaleDateString('en-US', {weekday: 'short'});
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [sliderWidth, setSliderWidth] = useState(0);
+  const dragX = useState(new Animated.Value(0))[0];
+  const maxSlide = Math.max(sliderWidth - 52, 0);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderMove: (_, gestureState) => {
+          const clamped = Math.max(0, Math.min(gestureState.dx, maxSlide));
+          dragX.setValue(clamped);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dx > maxSlide * 0.7) {
+            Animated.timing(dragX, {
+              toValue: maxSlide,
+              duration: 100,
+              useNativeDriver: true,
+            }).start(() => {
+              setIsCheckedIn(prev => !prev);
+              Animated.spring(dragX, {
+                toValue: 0,
+                speed: 24,
+                bounciness: 0,
+                useNativeDriver: true,
+              }).start();
+            });
+            return;
+          }
+
+          Animated.timing(dragX, {
+            toValue: 0,
+            duration: 140,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    [dragX, maxSlide],
+  );
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  const ctaScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.02],
+  });
+  const arrowNudge = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 3],
+  });
+
+  const attendanceCards = [
+    {
+      key: 'check-in',
+      title: 'Check In',
+      value: '10:20 am',
+      subtitle: 'On Time',
+      icon: 'log-in-outline' as const,
+      iconColor: '#2563eb',
+      iconBg: 'bg-blue-100',
+      subtitleColor: 'text-emerald-600',
+    },
+    {
+      key: 'check-out',
+      title: 'Check Out',
+      value: '07:00 pm',
+      subtitle: 'Go Home',
+      icon: 'log-out-outline' as const,
+      iconColor: '#4f46e5',
+      iconBg: 'bg-indigo-100',
+      subtitleColor: 'text-slate-500',
+    },
+    {
+      key: 'break',
+      title: 'Break Time',
+      value: '00:30 min',
+      subtitle: 'Avg 30 min',
+      icon: 'cafe-outline' as const,
+      iconColor: '#0284c7',
+      iconBg: 'bg-sky-100',
+      subtitleColor: 'text-slate-500',
+    },
+    {
+      key: 'days',
+      title: 'Total Days',
+      value: '28 days',
+      subtitle: 'Working Days',
+      icon: 'calendar-outline' as const,
+      iconColor: '#7c3aed',
+      iconBg: 'bg-violet-100',
+      subtitleColor: 'text-slate-500',
+    },
+  ];
 
   return (
-    <View className="flex-1 bg-slate-50 pt-16">
+    <View className="flex-1 bg-slate-50 pt-16 pb-20">
       <View className="flex-row items-center justify-between px-5">
         <View className="flex-row items-center">
           <Image
@@ -87,6 +208,114 @@ function HomeTab() {
           );
         })}
       </ScrollView>
+
+      <View className="px-5 pt-2">
+        <Text className="text-xl font-bold text-slate-900">Today Attendance</Text>
+        <Text className="mt-1 text-sm text-slate-500">
+          Quick summary of your daily activity
+        </Text>
+
+        <View className="mt-3 flex-row flex-wrap justify-between">
+          {attendanceCards.map(card => (
+            <View
+              key={card.key}
+              className="mb-2.5 w-[48.5%] rounded-2xl border border-slate-100 bg-white p-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xs font-medium text-slate-500">{card.title}</Text>
+                <View
+                  className={`h-8 w-8 items-center justify-center rounded-lg ${card.iconBg}`}>
+                  <Ionicons name={card.icon} size={16} color={card.iconColor} />
+                </View>
+              </View>
+
+              <Text className="mt-2 text-[22px] font-bold text-slate-900">{card.value}</Text>
+              <Text className={`mt-0.5 text-xs font-medium ${card.subtitleColor}`}>
+                {card.subtitle}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View className="mt-3">
+          <View className="mb-3.5 flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-slate-900">Your Activity</Text>
+            <Pressable>
+              <Text className="text-base font-medium text-blue-500">View All</Text>
+            </Pressable>
+          </View>
+
+          <View className="rounded-2xl border border-slate-100 bg-white px-4 py-4">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+                  <Ionicons name="log-in-outline" size={18} color="#2563eb" />
+                </View>
+                <View className="ml-3">
+                  <Text className="text-lg font-semibold text-slate-900">
+                    Check In
+                  </Text>
+                  <Text className="mt-0.5 text-sm text-slate-400">Apr 17, 2026</Text>
+                </View>
+              </View>
+              <View className="items-end">
+                <Text className="text-2xl font-bold text-slate-900">10:00 am</Text>
+                <Text className="mt-0.5 text-sm font-medium text-emerald-600">
+                  On Time
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-2.5 rounded-2xl border border-slate-100 bg-white px-4 py-4">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-sky-100">
+                  <Ionicons name="cafe-outline" size={18} color="#0284c7" />
+                </View>
+                <View className="ml-3">
+                  <Text className="text-lg font-semibold text-slate-900">
+                    Break In
+                  </Text>
+                  <Text className="mt-0.5 text-sm text-slate-400">Apr 17, 2026</Text>
+                </View>
+              </View>
+              <View className="items-end">
+                <Text className="text-2xl font-bold text-slate-900">12:30 pm</Text>
+                <Text className="mt-0.5 text-sm text-slate-500">On Time</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <Animated.View
+        className={`absolute bottom-2 left-4 right-4 z-20 rounded-2xl p-2 ${
+          isCheckedIn ? 'bg-red-200' : 'bg-blue-500'
+        }`}
+        style={{transform: [{scale: ctaScale}]}}
+        onLayout={e => setSliderWidth(e.nativeEvent.layout.width - 16)}>
+        <View className="pointer-events-none absolute inset-0 items-center justify-center px-16">
+          <Text
+            className={`text-center text-xl font-semibold ${
+              isCheckedIn ? 'text-red-800' : 'text-white'
+            }`}>
+            {isCheckedIn ? 'Swipe to Check Out' : 'Swipe to Check In'}
+          </Text>
+        </View>
+
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={{transform: [{translateX: dragX}]}}
+          className="h-11 w-11 items-center justify-center rounded-xl bg-white">
+          <Animated.View style={{transform: [{translateX: arrowNudge}]}}>
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color={isCheckedIn ? '#991b1b' : '#3b82f6'}
+            />
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
     </View>
   );
 }
