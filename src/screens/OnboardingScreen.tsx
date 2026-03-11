@@ -60,10 +60,10 @@ export default function OnboardingScreen({
           <View className="h-1.5 w-1.5 rounded-full bg-slate-300" />
         </View>
 
-        <Text className="text-[30px] font-bold leading-10 text-slate-900">
+        <Text className="text-[28px] font-bold leading-9 text-slate-900">
           Simplify your daily HR routine
         </Text>
-        <Text className="mt-3 text-sm leading-6 text-slate-500">
+        <Text className="mt-3 text-[15px] leading-6 text-slate-500">
           Check-in, check-out, leave requests and profile details. Everything in
           one modern employee app.
         </Text>
@@ -71,7 +71,7 @@ export default function OnboardingScreen({
         <Pressable
           className="mt-7 items-center rounded-2xl bg-blue-500 py-4"
           onPress={onGetStarted}>
-          <Text className="text-lg font-semibold text-white">Get Started</Text>
+          <Text className="text-base font-semibold text-white">Get Started</Text>
         </Pressable>
       </View>
     </View>

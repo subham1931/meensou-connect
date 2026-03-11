@@ -20,11 +20,12 @@ type HomeTabsScreenProps = {
 };
 
 function HomeTab() {
+  const calendarScrollRef = useRef<ScrollView>(null);
   const days = useMemo(() => {
     const result: Date[] = [];
     const today = new Date();
 
-    for (let i = -3; i <= 10; i += 1) {
+    for (let i = -13; i <= 0; i += 1) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       result.push(date);
@@ -173,9 +174,13 @@ function HomeTab() {
       </View>
 
       <ScrollView
+        ref={calendarScrollRef}
         horizontal
         className="max-h-28"
         showsHorizontalScrollIndicator={false}
+        onContentSizeChange={() =>
+          calendarScrollRef.current?.scrollToEnd({animated: false})
+        }
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingVertical: 10,
@@ -212,8 +217,8 @@ function HomeTab() {
       </ScrollView>
 
       <View className="px-5 pt-2">
-        <Text className="text-xl font-bold text-slate-900">Today Attendance</Text>
-        <Text className="mt-1 text-sm text-slate-500">
+        <Text className="text-[22px] font-bold text-slate-900">Today Attendance</Text>
+        <Text className="mt-1 text-[15px] text-slate-500">
           Quick summary of your daily activity
         </Text>
 
@@ -240,7 +245,7 @@ function HomeTab() {
 
         <View className="mt-3">
           <View className="mb-3.5 flex-row items-center justify-between">
-            <Text className="text-2xl font-bold text-slate-900">Your Activity</Text>
+            <Text className="text-[22px] font-bold text-slate-900">Your Activity</Text>
             <Pressable>
               <Text className="text-base font-medium text-blue-500">View All</Text>
             </Pressable>
@@ -260,7 +265,7 @@ function HomeTab() {
                 </View>
               </View>
               <View className="items-end">
-                <Text className="text-2xl font-bold text-slate-900">10:00 am</Text>
+                <Text className="text-[22px] font-bold text-slate-900">10:00 am</Text>
                 <Text className="mt-0.5 text-sm font-medium text-emerald-600">
                   On Time
                 </Text>
@@ -282,7 +287,7 @@ function HomeTab() {
                 </View>
               </View>
               <View className="items-end">
-                <Text className="text-2xl font-bold text-slate-900">12:30 pm</Text>
+                <Text className="text-[22px] font-bold text-slate-900">12:30 pm</Text>
                 <Text className="mt-0.5 text-sm text-slate-500">On Time</Text>
               </View>
             </View>
@@ -523,15 +528,15 @@ function LeavesTab() {
             className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white">
             <Ionicons name="arrow-back" size={18} color="#0f172a" />
           </Pressable>
-          <Text className="text-2xl font-bold text-slate-900">Leave Details</Text>
+          <Text className="text-[30px] font-bold text-slate-900">Leave Details</Text>
         </View>
 
         <ScrollView className="px-5" showsVerticalScrollIndicator={false}>
           <View className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <View className="flex-row items-start justify-between">
               <View className="flex-1 pr-3">
-                <Text className="text-xs font-medium text-slate-500">Leave Title</Text>
-                <Text className="mt-1 text-[22px] font-bold leading-7 text-slate-900">
+                <Text className="text-[13px] font-medium text-slate-500">Leave Title</Text>
+                <Text className="mt-1 text-[20px] font-bold leading-7 text-slate-900">
                   {selectedLeave.leaveTitle}
                 </Text>
                 <Text className="mt-2 text-sm font-medium text-slate-500">
@@ -550,8 +555,8 @@ function LeavesTab() {
                 <Ionicons name="document-text-outline" size={18} color="#2563eb" />
               </View>
               <View className="ml-3">
-                <Text className="text-xs text-slate-500">Leave Type</Text>
-                <Text className="text-base font-semibold text-slate-900">
+                <Text className="text-[13px] font-medium text-slate-500">Leave Type</Text>
+                <Text className="text-[16px] font-semibold text-slate-900">
                   {selectedLeave.leaveType}
                 </Text>
               </View>
@@ -560,21 +565,21 @@ function LeavesTab() {
 
           <View className="mt-3 flex-row flex-wrap justify-between">
             <View className="mb-3 w-[48.5%] rounded-2xl border border-slate-100 bg-white p-3.5">
-              <Text className="text-xs text-slate-500">Applied On</Text>
-              <Text className="mt-1 text-[15px] font-semibold text-slate-900">
+              <Text className="text-[13px] font-medium text-slate-500">Applied On</Text>
+              <Text className="mt-1 text-[16px] font-semibold text-slate-900">
                 {selectedLeave.appliedOnDate}
               </Text>
             </View>
             <View className="mb-3 w-[48.5%] rounded-2xl border border-slate-100 bg-white p-3.5">
-              <Text className="text-xs text-slate-500">Status</Text>
-              <Text className="mt-1 text-[15px] font-semibold text-slate-900">
+              <Text className="text-[13px] font-medium text-slate-500">Status</Text>
+              <Text className="mt-1 text-[16px] font-semibold text-slate-900">
                 {selectedLeave.status}
               </Text>
             </View>
             {selectedLeave.status === 'Approved' && (
               <View className="mb-3 w-full rounded-2xl border border-slate-100 bg-white p-3.5">
-                <Text className="text-xs text-slate-500">Approved By</Text>
-                <Text className="mt-1 text-[15px] font-semibold text-slate-900">
+                <Text className="text-[13px] font-medium text-slate-500">Approved By</Text>
+                <Text className="mt-1 text-[16px] font-semibold text-slate-900">
                   {selectedLeave.approvedBy}
                 </Text>
               </View>
@@ -586,9 +591,9 @@ function LeavesTab() {
               <View className="h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
                 <Ionicons name="chatbox-ellipses-outline" size={18} color="#6d28d9" />
               </View>
-              <Text className="ml-2.5 text-base font-semibold text-slate-900">Reason</Text>
+              <Text className="ml-2.5 text-[16px] font-semibold text-slate-900">Reason</Text>
             </View>
-            <Text className="mt-3 text-[15px] leading-7 text-slate-700">
+            <Text className="mt-3 text-[16px] leading-7 text-slate-700">
               {selectedLeave.reason}
             </Text>
           </View>
@@ -606,27 +611,27 @@ function LeavesTab() {
             className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white">
             <Ionicons name="arrow-back" size={18} color="#0f172a" />
           </Pressable>
-          <Text className="text-2xl font-bold text-slate-900">Apply Leave</Text>
+          <Text className="text-[30px] font-bold text-slate-900">Apply Leave</Text>
         </View>
 
         <ScrollView className="px-5" showsVerticalScrollIndicator={false}>
           <View className="mb-3">
-            <Text className="mb-2 text-sm font-medium text-slate-700">Leave Title</Text>
+            <Text className="mb-2 text-[13px] font-medium text-slate-500">Leave Title</Text>
             <TextInput
               value={leaveTitle}
               onChangeText={setLeaveTitle}
               placeholder="Enter leave title"
               placeholderTextColor="#94a3b8"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-[16px] text-slate-900"
             />
           </View>
 
           <View className="relative z-30 mb-3">
-            <Text className="mb-2 text-sm font-medium text-slate-700">Leave Type</Text>
+            <Text className="mb-2 text-[13px] font-medium text-slate-500">Leave Type</Text>
             <Pressable
               onPress={() => setShowLeaveTypeOptions(prev => !prev)}
               className="flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-              <Text className="text-base text-slate-900">{leaveType}</Text>
+              <Text className="text-[16px] text-slate-900">{leaveType}</Text>
               <Ionicons
                 name={showLeaveTypeOptions ? 'chevron-up' : 'chevron-down'}
                 size={18}
@@ -649,7 +654,7 @@ function LeavesTab() {
                         isSelected ? 'bg-blue-50' : 'bg-white'
                       }`}>
                       <Text
-                        className={`text-sm font-medium ${
+                        className={`text-[16px] font-medium ${
                           isSelected ? 'text-blue-700' : 'text-slate-700'
                         }`}>
                         {type}
@@ -664,22 +669,28 @@ function LeavesTab() {
 
           <View className="mb-3 flex-row justify-between">
             <View className="w-[48.5%]">
-              <Text className="mb-2 text-sm font-medium text-slate-700">Starting Date</Text>
+              <Text className="mb-2 text-[13px] font-medium text-slate-500">Starting Date</Text>
               <Pressable
                 onPress={() => openDatePicker('start')}
                 className="flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-                <Text className={startDate ? 'text-base text-slate-900' : 'text-base text-slate-400'}>
+                <Text
+                  className={
+                    startDate ? 'text-[16px] text-slate-900' : 'text-[16px] text-slate-400'
+                  }>
                   {startDate || 'DD/MM/YYYY'}
                 </Text>
                 <Ionicons name="calendar-outline" size={18} color="#94a3b8" />
               </Pressable>
             </View>
             <View className="w-[48.5%]">
-              <Text className="mb-2 text-sm font-medium text-slate-700">Ending Date</Text>
+              <Text className="mb-2 text-[13px] font-medium text-slate-500">Ending Date</Text>
               <Pressable
                 onPress={() => openDatePicker('end')}
                 className="flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-                <Text className={endDate ? 'text-base text-slate-900' : 'text-base text-slate-400'}>
+                <Text
+                  className={
+                    endDate ? 'text-[16px] text-slate-900' : 'text-[16px] text-slate-400'
+                  }>
                   {endDate || 'DD/MM/YYYY'}
                 </Text>
                 <Ionicons name="calendar-outline" size={18} color="#94a3b8" />
@@ -688,7 +699,7 @@ function LeavesTab() {
           </View>
 
           <View className="mb-4">
-            <Text className="mb-2 text-sm font-medium text-slate-700">Reason of Leave</Text>
+            <Text className="mb-2 text-[13px] font-medium text-slate-500">Reason of Leave</Text>
             <TextInput
               value={reason}
               onChangeText={setReason}
@@ -696,7 +707,7 @@ function LeavesTab() {
               textAlignVertical="top"
               placeholder="Write your reason..."
               placeholderTextColor="#94a3b8"
-              className="min-h-[130px] rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900"
+              className="min-h-[130px] rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-[16px] text-slate-900"
             />
           </View>
 
@@ -713,7 +724,7 @@ function LeavesTab() {
   return (
     <ScrollView className="flex-1 bg-slate-50 px-5 pt-16">
       <View className="flex-row items-center justify-between">
-        <Text className="text-3xl font-bold text-slate-900">All Leaves</Text>
+      <Text className="text-[30px] font-bold text-slate-900">All Leaves</Text>
         <Pressable
           onPress={() => setShowApplyModal(true)}
           className="flex-row items-center rounded-xl bg-blue-500 px-3.5 py-2">
@@ -721,7 +732,7 @@ function LeavesTab() {
           <Text className="ml-1.5 text-xs font-semibold text-white">Apply Leave</Text>
         </Pressable>
       </View>
-      <Text className="mt-1 text-sm text-slate-500">
+      <Text className="mt-1 text-[15px] text-slate-500">
         Overview of your leave status
       </Text>
 
@@ -750,7 +761,7 @@ function LeavesTab() {
 
       <View className="mt-2">
         <View className="flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-slate-900">Leave History</Text>
+          <Text className="text-[22px] font-bold text-slate-900">Leave History</Text>
           <Pressable
             onPress={() => setShowFilterOptions(prev => !prev)}
             className={`h-9 w-9 items-center justify-center rounded-lg border bg-white ${
@@ -765,7 +776,7 @@ function LeavesTab() {
             />
           </Pressable>
         </View>
-        <Text className="mt-1 text-sm text-slate-500">
+        <Text className="mt-1 text-[15px] text-slate-500">
           Recently requested leaves
         </Text>
 
@@ -860,46 +871,101 @@ function HolidaysTab() {
   const holidays = [
     {
       id: 'h-1',
-      isoDate: '2026-01-26',
-      date: 'January 26, 2026',
-      day: 'Monday',
-      title: 'Republic Day',
+      isoDate: '2026-01-01',
+      date: 'January 01, 2026',
+      title: "New Year's Day",
     },
     {
       id: 'h-2',
-      isoDate: '2026-03-14',
-      date: 'March 14, 2026',
-      day: 'Saturday',
-      title: 'Holi',
+      isoDate: '2026-01-14',
+      date: 'January 14, 2026',
+      title: 'Makar Sankranti',
     },
     {
       id: 'h-3',
-      isoDate: '2026-04-10',
-      date: 'April 10, 2026',
-      day: 'Friday',
-      title: 'Good Friday',
+      isoDate: '2026-01-26',
+      date: 'January 26, 2026',
+      title: 'Republic Day',
     },
     {
       id: 'h-4',
-      isoDate: '2026-08-15',
-      date: 'August 15, 2026',
-      day: 'Saturday',
-      title: 'Independence Day',
+      isoDate: '2026-02-15',
+      date: 'February 15, 2026',
+      title: 'Maha Shivratri',
     },
     {
       id: 'h-5',
+      isoDate: '2026-03-14',
+      date: 'March 14, 2026',
+      title: 'Holi',
+    },
+    {
+      id: 'h-6',
+      isoDate: '2026-04-10',
+      date: 'April 10, 2026',
+      title: 'Good Friday',
+    },
+    {
+      id: 'h-7',
+      isoDate: '2026-04-14',
+      date: 'April 14, 2026',
+      title: 'Ambedkar Jayanti',
+    },
+    {
+      id: 'h-8',
+      isoDate: '2026-05-01',
+      date: 'May 01, 2026',
+      title: 'Labour Day',
+    },
+    {
+      id: 'h-9',
+      isoDate: '2026-06-17',
+      date: 'June 17, 2026',
+      title: 'Bakrid / Eid al-Adha',
+    },
+    {
+      id: 'h-10',
+      isoDate: '2026-08-15',
+      date: 'August 15, 2026',
+      title: 'Independence Day',
+    },
+    {
+      id: 'h-11',
+      isoDate: '2026-09-07',
+      date: 'September 07, 2026',
+      title: 'Janmashtami',
+    },
+    {
+      id: 'h-12',
       isoDate: '2026-10-02',
       date: 'October 02, 2026',
-      day: 'Friday',
       title: 'Gandhi Jayanti',
+    },
+    {
+      id: 'h-13',
+      isoDate: '2026-10-20',
+      date: 'October 20, 2026',
+      title: 'Dussehra',
+    },
+    {
+      id: 'h-14',
+      isoDate: '2026-11-08',
+      date: 'November 08, 2026',
+      title: 'Diwali',
+    },
+    {
+      id: 'h-15',
+      isoDate: '2026-12-25',
+      date: 'December 25, 2026',
+      title: 'Christmas Day',
     },
   ];
 
   return (
     <ScrollView className="flex-1 bg-slate-50 px-5 pt-16">
-      <Text className="text-3xl font-bold text-slate-900">Holidays</Text>
-      <Text className="mt-1 text-sm text-slate-500">
-        Upcoming holidays and office off days
+      <Text className="text-[30px] font-bold text-slate-900">Holidays</Text>
+      <Text className="mt-1 text-[15px] text-slate-500">
+        Corporate holiday calendar
       </Text>
 
       <View className="mt-4">
@@ -912,6 +978,7 @@ function HolidaysTab() {
           );
           const holidayDate = new Date(item.isoDate);
           const isUpcoming = holidayDate >= currentDate;
+          const dayLabel = holidayDate.toLocaleDateString('en-US', {weekday: 'long'});
           const accentClass = isUpcoming ? 'bg-blue-500' : 'bg-slate-300';
           const cardClass = isUpcoming ? 'bg-blue-50' : 'bg-slate-100';
           const dateTextClass = isUpcoming ? 'text-slate-800' : 'text-slate-500';
@@ -933,7 +1000,7 @@ function HolidaysTab() {
                         {item.date}
                       </Text>
                     </View>
-                    <Text className={`text-[13px] ${dayTextClass}`}>{item.day}</Text>
+                    <Text className={`text-[13px] ${dayTextClass}`}>{dayLabel}</Text>
                   </View>
                   <Text className={`mt-1.5 text-[16px] font-bold leading-6 ${titleTextClass}`}>
                     {item.title}
@@ -951,40 +1018,64 @@ function HolidaysTab() {
 }
 
 function ProfileTab({onLogout}: {onLogout: () => void}) {
+  const profileMenu = [
+    {key: 'my-profile', label: 'My Profile', icon: 'person-outline' as const},
+    {key: 'settings', label: 'Settings', icon: 'settings-outline' as const},
+    {key: 'terms', label: 'Terms & Conditions', icon: 'document-text-outline' as const},
+    {key: 'privacy', label: 'Privacy Policy', icon: 'shield-checkmark-outline' as const},
+  ];
+
   return (
-    <View className="flex-1 bg-slate-50 px-5 pt-14">
-      <View className="items-center rounded-3xl bg-white p-5 shadow-sm">
-        <Image
-          source={{uri: 'https://i.pravatar.cc/200?img=12'}}
-          className="h-24 w-24 rounded-full"
-        />
-        <Text className="mt-4 text-2xl font-bold text-slate-900">
-          Michael Smith
-        </Text>
-        <Text className="mt-1 text-sm text-slate-500">Android Developer</Text>
-
-        <View className="mt-6 w-full rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <Text className="text-xs text-slate-500">Email</Text>
-          <Text className="mt-1 text-base font-medium text-slate-900">
-            michael.smith@meensou.com
-          </Text>
+    <ScrollView className="flex-1 bg-slate-50 px-5 pt-14">
+      <View className="items-center">
+        <View className="relative">
+          <Image
+            source={{uri: 'https://i.pravatar.cc/200?img=12'}}
+            className="h-28 w-28 rounded-full"
+          />
+          <Pressable className="absolute -bottom-1 right-0 h-9 w-9 items-center justify-center rounded-xl bg-blue-500">
+            <Ionicons name="camera-outline" size={17} color="#ffffff" />
+          </Pressable>
         </View>
 
-        <View className="mt-3 w-full rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <Text className="text-xs text-slate-500">Employee ID</Text>
-          <Text className="mt-1 text-base font-medium text-slate-900">
-            MC-1042
-          </Text>
-        </View>
+        <Text className="mt-4 text-[28px] font-bold text-slate-900">Michael Smith</Text>
+        <Text className="mt-1 text-[14px] text-slate-500">Lead UI/UX Designer</Text>
 
-        <Pressable
-          className="mt-6 w-full flex-row items-center justify-center rounded-2xl bg-red-500 py-4"
-          onPress={onLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#fff" />
-          <Text className="ml-2 text-base font-semibold text-white">Logout</Text>
+        <Pressable className="mt-6 w-full items-center rounded-2xl bg-blue-500 py-3.5">
+          <Text className="text-[15px] font-semibold text-white">Edit Profile</Text>
         </Pressable>
       </View>
-    </View>
+
+      <View className="mt-7">
+        {profileMenu.map((item, index) => (
+          <View key={item.key}>
+            <Pressable className="flex-row items-center justify-between py-4">
+              <View className="flex-row items-center">
+                <View className="h-11 w-11 items-center justify-center rounded-full bg-slate-100">
+                  <Ionicons name={item.icon} size={18} color="#0f172a" />
+                </View>
+                <Text className="ml-4 text-[15px] font-semibold text-slate-900">
+                  {item.label}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#0f172a" />
+            </Pressable>
+            {index !== profileMenu.length - 1 && <View className="h-px bg-slate-200" />}
+          </View>
+        ))}
+
+        <Pressable
+          className="mt-1 flex-row items-center py-4"
+          onPress={onLogout}>
+          <View className="h-11 w-11 items-center justify-center rounded-full bg-red-100">
+            <Ionicons name="log-out-outline" size={19} color="#ef4444" />
+          </View>
+          <Text className="ml-4 text-[15px] font-semibold text-red-500">Log out</Text>
+        </Pressable>
+      </View>
+
+      <View className="h-24" />
+    </ScrollView>
   );
 }
 

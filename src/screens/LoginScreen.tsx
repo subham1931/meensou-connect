@@ -21,16 +21,16 @@ export default function LoginScreen({onLogin}: LoginScreenProps) {
           <Text className="mt-4 text-3xl font-bold text-slate-900">
             Welcome Back
           </Text>
-          <Text className="mt-1 text-sm text-slate-500">Login to continue</Text>
+          <Text className="mt-1 text-[15px] text-slate-500">Login to continue</Text>
         </View>
 
         <View className="gap-2.5">
           <View className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
-            <Text className="text-xs font-medium text-slate-500">
+            <Text className="text-[13px] font-medium text-slate-500">
               Username / Email
             </Text>
             <TextInput
-              className="mt-0.5 text-[15px] text-slate-900"
+              className="mt-0.5 text-[16px] text-slate-900"
               placeholder="john@example.com"
               placeholderTextColor="#94a3b8"
               autoCapitalize="none"
@@ -38,10 +38,10 @@ export default function LoginScreen({onLogin}: LoginScreenProps) {
           </View>
 
           <View className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
-            <Text className="text-xs font-medium text-slate-500">Password</Text>
+            <Text className="text-[13px] font-medium text-slate-500">Password</Text>
             <View className="mt-0.5 flex-row items-center">
               <TextInput
-                className="flex-1 text-[15px] text-slate-900"
+                className="flex-1 text-[16px] text-slate-900"
                 placeholder="********"
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showPassword}
@@ -56,7 +56,7 @@ export default function LoginScreen({onLogin}: LoginScreenProps) {
         </View>
 
         <Pressable className="mt-3 self-end">
-          <Text className="text-sm font-medium text-blue-600">
+          <Text className="text-[13px] font-medium text-blue-600">
             Forgot Password?
           </Text>
         </Pressable>
@@ -64,7 +64,7 @@ export default function LoginScreen({onLogin}: LoginScreenProps) {
         <Pressable
           className="mt-5 items-center rounded-2xl bg-blue-500 py-4"
           onPress={onLogin}>
-          <Text className="text-lg font-semibold text-white">Login</Text>
+          <Text className="text-base font-semibold text-white">Login</Text>
         </Pressable>
       </View>
     </View>

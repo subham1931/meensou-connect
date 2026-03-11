@@ -6,8 +6,8 @@ export default function SplashScreen() {
       <View className="h-20 w-20 items-center justify-center rounded-3xl bg-white/20">
         <Text className="text-3xl font-bold text-white">MC</Text>
       </View>
-      <Text className="mt-5 text-3xl font-bold text-white">Meensou Connect</Text>
-      <Text className="mt-2 text-base text-blue-100">Employee App</Text>
+      <Text className="mt-5 text-[30px] font-bold text-white">Meensou Connect</Text>
+      <Text className="mt-2 text-sm text-blue-100">Employee App</Text>
     </View>
   );
 }
