@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 // Removed NavigationContainer import
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {
+  Alert,
   Animated,
   Image,
   PanResponder,
@@ -13,13 +14,24 @@ import {
 } from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {DateTimePickerAndroid} from '@react-native-community/datetimepicker';
+import type { EmployeeProfile } from '../services/mobileAuth';
+import { formatTimeLabel, getAttendanceByDate, markCheckIn, markCheckOut } from '../services/attendance';
 
 const Tab = createBottomTabNavigator();
 type HomeTabsScreenProps = {
   onLogout: () => void;
+  employeeProfile?: EmployeeProfile | null;
 };
 
-function HomeTab({navigation}: {navigation: any}) {
+const getInitials = (value: string) =>
+  (value || "A")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+
+function HomeTab({navigation, employeeProfile}: {navigation: any, employeeProfile?: EmployeeProfile | null}) {
   const calendarScrollRef = useRef<ScrollView>(null);
   const days = useMemo(() => {
     const result: Date[] = [];
@@ -34,15 +46,68 @@ function HomeTab({navigation}: {navigation: any}) {
   }, []);
 
   const todayKey = new Date().toDateString();
+  const todayIso = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const getDayLabel = (date: Date) =>
     date.toLocaleDateString('en-US', {weekday: 'short'});
   const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isSubmittingSwipe, setIsSubmittingSwipe] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<{
+    checkInAt: string | null
+    checkOutAt: string | null
+    status: string
+    workMinutes: number
+  } | null>(null);
   const [sliderWidth, setSliderWidth] = useState(0);
   const dragX = useState(new Animated.Value(0))[0];
   const maxSlide = Math.max(sliderWidth - 52, 0);
+  const restingTranslateX = isCheckedIn ? maxSlide : 0;
+
+  useEffect(() => {
+    dragX.setValue(restingTranslateX);
+  }, [dragX, restingTranslateX]);
+
+  const selectedIsoDate = useMemo(() => {
+    const dateObj = new Date(selectedDate);
+    if (Number.isNaN(dateObj.getTime())) return todayIso;
+    return `${dateObj.getFullYear()}-${`${dateObj.getMonth() + 1}`.padStart(2, '0')}-${`${dateObj.getDate()}`.padStart(2, '0')}`;
+  }, [selectedDate, todayIso]);
+  const selectedDateLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(selectedDate)),
+    [selectedDate],
+  );
+  const isSelectedToday = selectedIsoDate === todayIso;
+  const hasCheckedOutForSelectedDate = Boolean(todayAttendance?.checkOutAt);
+  const isSwipeDisabled = !isSelectedToday || hasCheckedOutForSelectedDate || isSubmittingSwipe;
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadAttendanceForSelectedDate() {
+      try {
+        const code = employeeProfile?.employeeCode || '';
+        if (!code) return;
+        const record = await getAttendanceByDate(code, selectedIsoDate);
+        if (!mounted) return;
+        setTodayAttendance(record);
+        const isToday = selectedIsoDate === todayIso;
+        setIsCheckedIn(Boolean(isToday && record?.checkInAt && !record?.checkOutAt));
+      } catch {
+        if (!mounted) return;
+        setTodayAttendance(null);
+      }
+    }
+    loadAttendanceForSelectedDate();
+    return () => {
+      mounted = false;
+    };
+  }, [employeeProfile?.employeeCode, selectedIsoDate, todayIso]);
 
   const panResponder = useMemo(
     () =>
@@ -50,35 +115,96 @@ function HomeTab({navigation}: {navigation: any}) {
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderMove: (_, gestureState) => {
-          const clamped = Math.max(0, Math.min(gestureState.dx, maxSlide));
+          const clamped = isCheckedIn
+            ? Math.max(0, Math.min(maxSlide, maxSlide + gestureState.dx))
+            : Math.max(0, Math.min(gestureState.dx, maxSlide));
           dragX.setValue(clamped);
         },
         onPanResponderRelease: (_, gestureState) => {
-          if (gestureState.dx > maxSlide * 0.7) {
+          if (isSwipeDisabled) {
             Animated.timing(dragX, {
-              toValue: maxSlide,
+              toValue: restingTranslateX,
+              duration: 140,
+              useNativeDriver: true,
+            }).start();
+            return;
+          }
+          const reachedCheckInThreshold = !isCheckedIn && gestureState.dx > maxSlide * 0.7;
+          const reachedCheckOutThreshold = isCheckedIn && gestureState.dx < -maxSlide * 0.7;
+          if (reachedCheckInThreshold || reachedCheckOutThreshold) {
+            Animated.timing(dragX, {
+              toValue: isCheckedIn ? 0 : maxSlide,
               duration: 100,
               useNativeDriver: true,
-            }).start(() => {
-              setIsCheckedIn(prev => !prev);
-              Animated.spring(dragX, {
-                toValue: 0,
-                speed: 24,
-                bounciness: 0,
-                useNativeDriver: true,
-              }).start();
+            }).start(async () => {
+              const code = employeeProfile?.employeeCode || '';
+              if (!isSelectedToday) {
+                Alert.alert('Date restricted', 'Check-in and check-out are allowed only for today.');
+                Animated.spring(dragX, {
+                  toValue: restingTranslateX,
+                  speed: 24,
+                  bounciness: 0,
+                  useNativeDriver: true,
+                }).start();
+                return;
+              }
+              if (hasCheckedOutForSelectedDate) {
+                Alert.alert('Attendance completed', 'You already checked out for this date.');
+                Animated.spring(dragX, {
+                  toValue: restingTranslateX,
+                  speed: 24,
+                  bounciness: 0,
+                  useNativeDriver: true,
+                }).start();
+                return;
+              }
+              if (!code) {
+                Alert.alert('Unable to mark attendance', 'Employee profile not found.');
+                Animated.spring(dragX, {
+                  toValue: restingTranslateX,
+                  speed: 24,
+                  bounciness: 0,
+                  useNativeDriver: true,
+                }).start();
+                return;
+              }
+              try {
+                setIsSubmittingSwipe(true);
+                const updated = isCheckedIn
+                  ? await markCheckOut(code)
+                  : await markCheckIn(code);
+                setTodayAttendance(updated);
+                const nextCheckedIn = Boolean(updated?.checkInAt && !updated?.checkOutAt);
+                setIsCheckedIn(nextCheckedIn);
+                Animated.spring(dragX, {
+                  toValue: nextCheckedIn ? maxSlide : 0,
+                  speed: 24,
+                  bounciness: 0,
+                  useNativeDriver: true,
+                }).start();
+              } catch (error: any) {
+                Alert.alert('Attendance Error', error?.message || 'Unable to update attendance.');
+                Animated.spring(dragX, {
+                  toValue: restingTranslateX,
+                  speed: 24,
+                  bounciness: 0,
+                  useNativeDriver: true,
+                }).start();
+              } finally {
+                setIsSubmittingSwipe(false);
+              }
             });
             return;
           }
 
           Animated.timing(dragX, {
-            toValue: 0,
+            toValue: restingTranslateX,
             duration: 140,
             useNativeDriver: true,
           }).start();
         },
       }),
-    [dragX, maxSlide],
+    [dragX, employeeProfile?.employeeCode, isCheckedIn, isSelectedToday, isSubmittingSwipe, maxSlide, restingTranslateX],
   );
 
   useEffect(() => {
@@ -113,18 +239,18 @@ function HomeTab({navigation}: {navigation: any}) {
     {
       key: 'check-in',
       title: 'Check In',
-      value: '10:20 am',
-      subtitle: 'On Time',
+      value: formatTimeLabel(todayAttendance?.checkInAt || null),
+      subtitle: todayAttendance?.status || 'Not Marked',
       icon: 'log-in-outline' as const,
       iconColor: '#2563eb',
       iconBg: 'bg-blue-100',
-      subtitleColor: 'text-emerald-600',
+      subtitleColor: todayAttendance?.status === 'Late' ? 'text-rose-600' : 'text-emerald-600',
     },
     {
       key: 'check-out',
       title: 'Check Out',
-      value: '07:00 pm',
-      subtitle: 'Go Home',
+      value: formatTimeLabel(todayAttendance?.checkOutAt || null),
+      subtitle: todayAttendance?.checkOutAt ? 'Completed' : 'Pending',
       icon: 'log-out-outline' as const,
       iconColor: '#4f46e5',
       iconBg: 'bg-indigo-100',
@@ -133,8 +259,8 @@ function HomeTab({navigation}: {navigation: any}) {
     {
       key: 'break',
       title: 'Break Time',
-      value: '00:30 min',
-      subtitle: 'Avg 30 min',
+      value: '--',
+      subtitle: 'No break tracking',
       icon: 'cafe-outline' as const,
       iconColor: '#0284c7',
       iconBg: 'bg-sky-100',
@@ -143,28 +269,38 @@ function HomeTab({navigation}: {navigation: any}) {
     {
       key: 'days',
       title: 'Total Days',
-      value: '28 days',
-      subtitle: 'Working Days',
+      value: todayAttendance?.checkInAt ? '1 day' : '0 day',
+      subtitle: 'This Date',
       icon: 'calendar-outline' as const,
       iconColor: '#7c3aed',
       iconBg: 'bg-violet-100',
       subtitleColor: 'text-slate-500',
     },
   ];
+  const firstName = (employeeProfile?.fullName || '').trim().split(' ')[0] || 'Employee';
+  const roleLabel = employeeProfile?.designation || employeeProfile?.department || 'Team Member';
+  const avatarUri = (employeeProfile?.profileImageUrl || '').trim();
+  const initials = getInitials(employeeProfile?.fullName || 'Employee');
 
   return (
     <View className="flex-1 bg-slate-50 relative pb-20">
       <View className="flex-row items-center justify-between px-6 pt-16">
         <View className="flex-row items-center">
-          <Image
-            source={{uri: 'https://i.pravatar.cc/100?img=12'}}
-            className="h-14 w-14 rounded-full border-2 border-white shadow-sm"
-          />
+          {avatarUri ? (
+            <Image
+              source={{uri: avatarUri}}
+              className="h-14 w-14 rounded-full border-2 border-white shadow-sm"
+            />
+          ) : (
+            <View className="h-14 w-14 items-center justify-center rounded-full border-2 border-white bg-emerald-100 shadow-sm">
+              <Text className="text-base font-semibold text-emerald-700">{initials || "A"}</Text>
+            </View>
+          )}
           <View className="ml-3.5">
             <Text className="text-[16px] font-bold tracking-tight text-slate-900">
-              Hi, Michael 👋
+              Hi, {firstName} 👋
             </Text>
-            <Text className="text-[13px] font-medium text-slate-500">Android Developer</Text>
+            <Text className="text-[13px] font-medium text-slate-500">{roleLabel}</Text>
           </View>
         </View>
 
@@ -263,14 +399,16 @@ function HomeTab({navigation}: {navigation: any}) {
                   <Text className="text-[16px] font-extrabold text-slate-900">
                     Checked In
                   </Text>
-                  <Text className="mt-0.5 text-[13px] font-medium text-slate-400">Today, Apr 17</Text>
+                  <Text className="mt-0.5 text-[13px] font-medium text-slate-400">{selectedDateLabel}</Text>
                 </View>
               </View>
               <View className="items-end">
-                <Text className="text-[18px] font-bold tracking-tight text-slate-900">10:00 am</Text>
+                <Text className="text-[18px] font-bold tracking-tight text-slate-900">
+                  {formatTimeLabel(todayAttendance?.checkInAt || null)}
+                </Text>
                 <View className="mt-1.5 rounded-full bg-emerald-50 px-2 py-0.5">
                   <Text className="text-[10px] font-bold tracking-wide text-emerald-600 uppercase">
-                    On Time
+                    {todayAttendance?.status || 'Not Marked'}
                   </Text>
                 </View>
               </View>
@@ -285,14 +423,18 @@ function HomeTab({navigation}: {navigation: any}) {
                 </View>
                 <View className="ml-3.5">
                   <Text className="text-[16px] font-extrabold text-slate-900">
-                    Coffee Break
+                    Checked Out
                   </Text>
-                  <Text className="mt-0.5 text-[13px] font-medium text-slate-400">Today, Apr 17</Text>
+                  <Text className="mt-0.5 text-[13px] font-medium text-slate-400">{selectedDateLabel}</Text>
                 </View>
               </View>
               <View className="items-end">
-                <Text className="text-[18px] font-bold tracking-tight text-slate-900">12:30 pm</Text>
-                <Text className="mt-1 text-[12px] font-medium text-slate-400">30m duration</Text>
+                <Text className="text-[18px] font-bold tracking-tight text-slate-900">
+                  {formatTimeLabel(todayAttendance?.checkOutAt || null)}
+                </Text>
+                <Text className="mt-1 text-[12px] font-medium text-slate-400">
+                  {todayAttendance?.workMinutes ? `${todayAttendance.workMinutes}m worked` : '--'}
+                </Text>
               </View>
             </View>
           </View>
@@ -301,7 +443,11 @@ function HomeTab({navigation}: {navigation: any}) {
 
       <Animated.View
         className={`absolute bottom-4 left-6 right-6 z-20 overflow-hidden rounded-full p-2.5 shadow-lg ${
-          isCheckedIn ? 'bg-red-500 shadow-red-500/30' : 'bg-blue-600 shadow-blue-500/30'
+          isSwipeDisabled
+            ? 'bg-slate-400 shadow-slate-400/30'
+            : isCheckedIn
+              ? 'bg-red-500 shadow-red-500/30'
+              : 'bg-blue-600 shadow-blue-500/30'
         }`}
         style={{transform: [{scale: ctaScale}]}}
         onLayout={e => setSliderWidth(e.nativeEvent.layout.width - 20)}>
@@ -309,19 +455,25 @@ function HomeTab({navigation}: {navigation: any}) {
         <View className="pointer-events-none absolute inset-0 items-center justify-center px-16">
           <Text
             className="text-center text-[15px] font-bold tracking-wide text-white shadow-sm">
-            {isCheckedIn ? 'Swipe to Check Out' : 'Swipe to Check In'}
+            {hasCheckedOutForSelectedDate
+              ? 'Attendance completed for this date'
+              : isSelectedToday
+                ? (isCheckedIn ? 'Swipe to Check Out' : 'Swipe to Check In')
+                : 'Select today to mark attendance'}
           </Text>
         </View>
 
         <Animated.View
-          {...panResponder.panHandlers}
+          {...(!isSwipeDisabled ? panResponder.panHandlers : {})}
           style={{transform: [{translateX: dragX}]}}
-          className="h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
-          <Animated.View style={{transform: [{translateX: arrowNudge}]}}>
+          className={`h-14 w-14 items-center justify-center rounded-full shadow-sm ${
+            isSwipeDisabled ? 'bg-slate-200' : 'bg-white'
+          }`}>
+          <Animated.View style={{transform: [{translateX: isCheckedIn ? Animated.multiply(arrowNudge, -1) : arrowNudge}]}}>
             <Ionicons
-              name="arrow-forward"
+              name={isCheckedIn ? 'arrow-back' : 'arrow-forward'}
               size={24}
-              color={isCheckedIn ? '#ef4444' : '#2563eb'}
+              color={isSwipeDisabled ? '#94a3b8' : isCheckedIn ? '#ef4444' : '#2563eb'}
             />
           </Animated.View>
         </Animated.View>
@@ -1064,38 +1216,39 @@ function HolidaysTab() {
   );
 }
 
-function ProfileTab({navigation, onLogout}: {navigation: any, onLogout: () => void}) {
+function ProfileTab({navigation, onLogout, employeeProfile}: {navigation: any, onLogout: () => void, employeeProfile?: EmployeeProfile | null}) {
   const profileMenu = [
-    {key: 'my-profile', label: 'My Profile', icon: 'person-outline' as const, route: 'EditProfile'},
+    {key: 'profile', label: 'Profile', icon: 'person-outline' as const, route: 'ProfileDetails'},
     {key: 'settings', label: 'Settings', icon: 'settings-outline' as const, route: 'Settings'},
     {key: 'terms', label: 'Terms & Conditions', icon: 'document-text-outline' as const, route: 'Terms'},
     {key: 'privacy', label: 'Privacy Policy', icon: 'shield-checkmark-outline' as const, route: 'Privacy'},
   ];
+  const displayName = employeeProfile?.fullName || 'Employee';
+  const displayRole = employeeProfile?.designation || employeeProfile?.department || 'Team Member';
+  const avatarUri = (employeeProfile?.profileImageUrl || '').trim();
+  const initials = getInitials(displayName);
 
   return (
     <ScrollView className="flex-1 bg-slate-50 px-6 pt-16">
       <View className="items-center">
         <View className="relative">
-          <Image
-            source={{uri: 'https://i.pravatar.cc/200?img=12'}}
-            className="h-[104px] w-[104px] rounded-full border-4 border-white shadow-sm shadow-slate-200/50"
-          />
-          <Pressable className="absolute -bottom-1 -right-1 h-[34px] w-[34px] items-center justify-center rounded-xl border-2 border-white bg-blue-600 shadow-sm shadow-blue-500/30">
-            <Ionicons name="camera-outline" size={16} color="#ffffff" />
-          </Pressable>
+          {avatarUri ? (
+            <Image
+              source={{uri: avatarUri}}
+              className="h-[104px] w-[104px] rounded-full border-4 border-white shadow-sm shadow-slate-200/50"
+            />
+          ) : (
+            <View className="h-[104px] w-[104px] items-center justify-center rounded-full border-4 border-white bg-emerald-100 shadow-sm shadow-slate-200/50">
+              <Text className="text-3xl font-semibold text-emerald-700">{initials || "A"}</Text>
+            </View>
+          )}
         </View>
 
-        <Text className="mt-5 text-[26px] font-extrabold tracking-tight text-slate-900">Michael Smith</Text>
-        <Text className="mt-1 text-[14px] font-medium text-slate-500">Lead UI/UX Designer</Text>
-
-        <Pressable 
-          className="mt-6 w-full items-center rounded-xl bg-blue-600 py-3.5 shadow-sm shadow-blue-500/30"
-          onPress={() => navigation.navigate('EditProfile')}>
-          <Text className="text-[14px] font-bold tracking-wide text-white">Edit Profile</Text>
-        </Pressable>
+        <Text className="mt-5 text-[26px] font-extrabold tracking-tight text-slate-900">{displayName}</Text>
+        <Text className="mt-1 text-[14px] font-medium text-slate-500">{displayRole}</Text>
       </View>
 
-      <View className="mt-8 rounded-2xl border border-slate-200/60 bg-white shadow-sm shadow-slate-200/30">
+      <View className="mt-6 rounded-2xl border border-slate-200/60 bg-white shadow-sm shadow-slate-200/30">
         {profileMenu.map((item, index) => (
           <View key={item.key}>
             <Pressable 
@@ -1144,7 +1297,7 @@ const getIconName = (
   return focused ? 'person' : 'person-outline';
 };
 
-export default function HomeTabsScreen({onLogout}: HomeTabsScreenProps) {
+export default function HomeTabsScreen({onLogout, employeeProfile}: HomeTabsScreenProps) {
   return (
     <Tab.Navigator
         screenOptions={({route}) => ({
@@ -1168,11 +1321,13 @@ export default function HomeTabsScreen({onLogout}: HomeTabsScreenProps) {
             />
           ),
         })}>
-        <Tab.Screen name="Home" component={HomeTab} />
+        <Tab.Screen name="Home">
+          {(props: any) => <HomeTab {...props} employeeProfile={employeeProfile} />}
+        </Tab.Screen>
         <Tab.Screen name="Leaves" component={LeavesTab} />
         <Tab.Screen name="Holidays" component={HolidaysTab} />
         <Tab.Screen name="Profile">
-          {(props: any) => <ProfileTab {...props} onLogout={onLogout} />}
+          {(props: any) => <ProfileTab {...props} onLogout={onLogout} employeeProfile={employeeProfile} />}
         </Tab.Screen>
       </Tab.Navigator>
   );

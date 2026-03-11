@@ -1,9 +1,34 @@
-import {useState} from 'react';
-import {Pressable, Text, TextInput, View} from 'react-native';
+import { useState } from "react"
+import { Pressable, Text, TextInput, View } from "react-native"
 
-export default function LoginScreen({navigation, route}: any) {
-  const [showPassword, setShowPassword] = useState(false);
-  const onLogin = route.params?.onLogin;
+type LoginScreenProps = {
+  navigation: any
+  onLogin?: (identifier: string, password: string) => Promise<void> | void
+}
+
+export default function LoginScreen({ navigation, onLogin }: LoginScreenProps) {
+  const [showPassword, setShowPassword] = useState(false)
+  const [identifier, setIdentifier] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleLogin = async () => {
+    const normalizedIdentifier = identifier.trim()
+    if (!normalizedIdentifier || !password.trim()) {
+      setError("Please enter office email/username and password.")
+      return
+    }
+    try {
+      setIsLoading(true)
+      setError("")
+      await onLogin?.(normalizedIdentifier, password)
+    } catch (err: any) {
+      setError(err?.message || "Unable to login right now.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <View className="flex-1 justify-center bg-slate-100 px-6 pt-8">
@@ -29,9 +54,16 @@ export default function LoginScreen({navigation, route}: any) {
             <View className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <TextInput
                 className="text-[16px] text-slate-900"
-                placeholder="john@example.com"
+                placeholder="name@meensou.com or username"
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="none"
+                autoCorrect={false}
+                value={identifier}
+                onChangeText={(text) => {
+                  setIdentifier(text)
+                  setError("")
+                }}
+                editable={!isLoading}
               />
             </View>
           </View>
@@ -46,6 +78,12 @@ export default function LoginScreen({navigation, route}: any) {
                 placeholder="********"
                 placeholderTextColor="#94a3b8"
                 secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text)
+                  setError("")
+                }}
+                editable={!isLoading}
               />
               <Pressable onPress={() => setShowPassword(prev => !prev)}>
                 <Text className="text-base text-slate-500">
@@ -56,6 +94,10 @@ export default function LoginScreen({navigation, route}: any) {
           </View>
         </View>
 
+        {error ? (
+          <Text className="mt-3 text-[13px] text-rose-500">{error}</Text>
+        ) : null}
+
         <Pressable className="mt-3 self-end">
           <Text className="text-[13px] font-medium text-blue-600">
             Forgot Password?
@@ -63,14 +105,15 @@ export default function LoginScreen({navigation, route}: any) {
         </Pressable>
 
         <Pressable
-          className="mt-5 items-center rounded-2xl bg-blue-500 py-3.5"
-          onPress={onLogin}>
-          <Text className="text-base font-semibold text-white">Login</Text>
+          className={`mt-5 items-center rounded-2xl py-3.5 ${isLoading ? "bg-blue-300" : "bg-blue-500"}`}
+          onPress={handleLogin}
+          disabled={isLoading}>
+          <Text className="text-base font-semibold text-white">{isLoading ? "Signing In..." : "Login"}</Text>
         </Pressable>
 
         <View className="mt-5 flex-row items-center justify-center">
           <Text className="text-[14px] text-slate-500">Don't have an account? </Text>
-          <Pressable onPress={() => navigation.navigate('SignUp')}>
+          <Pressable onPress={() => navigation.navigate("SignUp")}>
             <Text className="text-[14px] font-semibold text-blue-600">Sign Up</Text>
           </Pressable>
         </View>
@@ -91,6 +134,6 @@ export default function LoginScreen({navigation, route}: any) {
         </View>
       </View>
     </View>
-  );
+  )
 }
 
