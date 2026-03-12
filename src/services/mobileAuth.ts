@@ -52,6 +52,21 @@ async function fetchEmployeeByIdentifier(identifier: string) {
   return data || null
 }
 
+async function fetchEmployeeByCode(employeeCode: string) {
+  const client = getSupabaseClient()
+  const code = String(employeeCode || "").trim()
+  if (!code) return null
+
+  const { data, error } = await client
+    .from("employees")
+    .select("employee_code, full_name, department, designation, office_email, mobile, profile_image_url, employment_status")
+    .eq("employee_code", code)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message || "Failed to refresh employee profile.")
+  return data || null
+}
+
 export async function signInEmployee(identifier: string, password: string) {
   getSupabaseClient()
   const loginId = normalizeIdentifier(identifier)
@@ -84,9 +99,21 @@ export async function getCurrentEmployeeSession() {
   const raw = await AsyncStorage.getItem(MOBILE_EMPLOYEE_SESSION_KEY)
   if (!raw) return null
   try {
-    const employee = JSON.parse(raw) as EmployeeProfile
-    if (!employee?.officeEmail && !employee?.employeeCode) return null
-    return { employee }
+    const cachedEmployee = JSON.parse(raw) as EmployeeProfile
+    if (!cachedEmployee?.officeEmail && !cachedEmployee?.employeeCode) return null
+
+    try {
+      const refreshedRow = await fetchEmployeeByCode(cachedEmployee.employeeCode)
+      if (refreshedRow) {
+        const refreshedProfile = mapEmployeeRowToProfile(refreshedRow)
+        await AsyncStorage.setItem(MOBILE_EMPLOYEE_SESSION_KEY, JSON.stringify(refreshedProfile))
+        return { employee: refreshedProfile }
+      }
+    } catch {
+      // Fall back to cached profile if refresh fails (offline/network issue).
+    }
+
+    return { employee: cachedEmployee }
   } catch {
     return null
   }

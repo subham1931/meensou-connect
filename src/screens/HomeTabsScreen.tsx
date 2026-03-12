@@ -18,6 +18,7 @@ import {DateTimePickerAndroid} from '@react-native-community/datetimepicker';
 import type { EmployeeProfile } from '../services/mobileAuth';
 import { formatTimeLabel, getAttendanceByDate, markCheckIn, markCheckOut } from '../services/attendance';
 import { createLeaveRequest, listEmployeeLeaveRequests } from '../services/leaves';
+import { listHolidays as listMobileHolidays } from '../services/holidays';
 
 const Tab = createBottomTabNavigator();
 type HomeTabsScreenProps = {
@@ -1165,98 +1166,42 @@ function LeavesTab({employeeProfile}: {employeeProfile?: EmployeeProfile | null}
 }
 
 function HolidaysTab() {
-  const holidays = [
-    {
-      id: 'h-1',
-      isoDate: '2026-01-01',
-      date: 'January 01, 2026',
-      title: "New Year's Day",
-    },
-    {
-      id: 'h-2',
-      isoDate: '2026-01-14',
-      date: 'January 14, 2026',
-      title: 'Makar Sankranti',
-    },
-    {
-      id: 'h-3',
-      isoDate: '2026-01-26',
-      date: 'January 26, 2026',
-      title: 'Republic Day',
-    },
-    {
-      id: 'h-4',
-      isoDate: '2026-02-15',
-      date: 'February 15, 2026',
-      title: 'Maha Shivratri',
-    },
-    {
-      id: 'h-5',
-      isoDate: '2026-03-14',
-      date: 'March 14, 2026',
-      title: 'Holi',
-    },
-    {
-      id: 'h-6',
-      isoDate: '2026-04-10',
-      date: 'April 10, 2026',
-      title: 'Good Friday',
-    },
-    {
-      id: 'h-7',
-      isoDate: '2026-04-14',
-      date: 'April 14, 2026',
-      title: 'Ambedkar Jayanti',
-    },
-    {
-      id: 'h-8',
-      isoDate: '2026-05-01',
-      date: 'May 01, 2026',
-      title: 'Labour Day',
-    },
-    {
-      id: 'h-9',
-      isoDate: '2026-06-17',
-      date: 'June 17, 2026',
-      title: 'Bakrid / Eid al-Adha',
-    },
-    {
-      id: 'h-10',
-      isoDate: '2026-08-15',
-      date: 'August 15, 2026',
-      title: 'Independence Day',
-    },
-    {
-      id: 'h-11',
-      isoDate: '2026-09-07',
-      date: 'September 07, 2026',
-      title: 'Janmashtami',
-    },
-    {
-      id: 'h-12',
-      isoDate: '2026-10-02',
-      date: 'October 02, 2026',
-      title: 'Gandhi Jayanti',
-    },
-    {
-      id: 'h-13',
-      isoDate: '2026-10-20',
-      date: 'October 20, 2026',
-      title: 'Dussehra',
-    },
-    {
-      id: 'h-14',
-      isoDate: '2026-11-08',
-      date: 'November 08, 2026',
-      title: 'Diwali',
-    },
-    {
-      id: 'h-15',
-      isoDate: '2026-12-25',
-      date: 'December 25, 2026',
-      title: 'Christmas Day',
-    },
-  ];
+  const [holidays, setHolidays] = useState<Array<{
+    id: string
+    isoDate: string
+    date: string
+    title: string
+  }>>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      async function loadHolidays() {
+        try {
+          const rows = await listMobileHolidays();
+          if (!mounted) return;
+          const mapped = (rows || []).map(item => ({
+            id: item.id,
+            isoDate: item.holidayDate,
+            date: new Intl.DateTimeFormat('en-US', {
+              month: 'long',
+              day: '2-digit',
+              year: 'numeric',
+            }).format(new Date(`${item.holidayDate}T00:00:00`)),
+            title: item.holidayName,
+          }));
+          setHolidays(mapped);
+        } catch {
+          if (!mounted) return;
+          setHolidays([]);
+        }
+      }
+      loadHolidays();
+      return () => {
+        mounted = false;
+      };
+    }, []),
+  );
 
   return (
     <ScrollView className="flex-1 bg-slate-50 px-6 pt-16">
@@ -1266,6 +1211,11 @@ function HolidaysTab() {
       </Text>
 
       <View className="mt-6">
+        {holidays.length === 0 ? (
+          <View className="rounded-xl border border-slate-200/60 bg-white py-6">
+            <Text className="text-center text-sm text-slate-500">No holidays available.</Text>
+          </View>
+        ) : null}
         {holidays.map(item => {
           const today = new Date();
           const currentDate = new Date(
@@ -1277,7 +1227,6 @@ function HolidaysTab() {
           const isUpcoming = holidayDate >= currentDate;
           const dayLabel = holidayDate.toLocaleDateString('en-US', {weekday: 'long'});
           const accentClass = isUpcoming ? 'bg-blue-500' : 'bg-slate-300';
-          const cardClass = isUpcoming ? 'bg-blue-50' : 'bg-slate-100';
           const dateTextClass = isUpcoming ? 'text-slate-800' : 'text-slate-500';
           const dayTextClass = isUpcoming ? 'text-blue-300' : 'text-slate-400';
           const titleTextClass = isUpcoming ? 'text-slate-900' : 'text-slate-500';
