@@ -1,6 +1,7 @@
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 // Removed NavigationContainer import
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {useFocusEffect} from '@react-navigation/native';
 import {
   Alert,
   Animated,
@@ -16,6 +17,7 @@ import {Ionicons} from '@expo/vector-icons';
 import {DateTimePickerAndroid} from '@react-native-community/datetimepicker';
 import type { EmployeeProfile } from '../services/mobileAuth';
 import { formatTimeLabel, getAttendanceByDate, markCheckIn, markCheckOut } from '../services/attendance';
+import { createLeaveRequest, listEmployeeLeaveRequests } from '../services/leaves';
 
 const Tab = createBottomTabNavigator();
 type HomeTabsScreenProps = {
@@ -482,8 +484,8 @@ function HomeTab({navigation, employeeProfile}: {navigation: any, employeeProfil
   );
 }
 
-function LeavesTab() {
-  type LeaveStatus = 'Approved' | 'Pending' | 'Canceled';
+function LeavesTab({employeeProfile}: {employeeProfile?: EmployeeProfile | null}) {
+  type LeaveStatus = 'Approved' | 'Pending' | 'Rejected' | 'Canceled';
   type LeaveFilter = 'All' | LeaveStatus;
   type LeaveItem = {
     id: string;
@@ -498,115 +500,8 @@ function LeavesTab() {
     approvedBy: string;
   };
 
-  const leaveStats = [
-    {
-      key: 'balance',
-      title: 'Leave Balance',
-      value: '12',
-      subtitle: 'Days Available',
-      icon: 'wallet-outline' as const,
-      iconColor: '#2563eb',
-      iconBg: 'bg-blue-100',
-      subtitleColor: 'text-slate-500',
-      topAccent: 'bg-blue-500',
-    },
-    {
-      key: 'approved',
-      title: 'Leave Approved',
-      value: '8',
-      subtitle: 'Approved',
-      icon: 'checkmark-done-outline' as const,
-      iconColor: '#059669',
-      iconBg: 'bg-emerald-100',
-      subtitleColor: 'text-emerald-600',
-      topAccent: 'bg-emerald-500',
-    },
-    {
-      key: 'pending',
-      title: 'Leave Pending',
-      value: '2',
-      subtitle: 'Awaiting Review',
-      icon: 'time-outline' as const,
-      iconColor: '#d97706',
-      iconBg: 'bg-amber-100',
-      subtitleColor: 'text-amber-600',
-      topAccent: 'bg-amber-500',
-    },
-    {
-      key: 'canceled',
-      title: 'Leave Canceled',
-      value: '1',
-      subtitle: 'Canceled',
-      icon: 'close-circle-outline' as const,
-      iconColor: '#e11d48',
-      iconBg: 'bg-rose-100',
-      subtitleColor: 'text-rose-600',
-      topAccent: 'bg-rose-500',
-    },
-  ];
-
-  const leaveHistory: LeaveItem[] = [
-    {
-      id: 'lv-001',
-      leaveTitle: 'Family Function',
-      leaveType: 'Casual Leave',
-      dateRange: 'Mar 10, 2023 - Mar 12, 2023',
-      reason: 'Family event out of town, so I need leave for two days.',
-      appliedOnDate: 'Mar 05, 2023',
-      status: 'Approved',
-      applyDays: '2 Days',
-      leaveBalance: '19',
-      approvedBy: 'Martin Deo',
-    },
-    {
-      id: 'lv-002',
-      leaveTitle: 'Health Checkup',
-      leaveType: 'Sick Leave',
-      dateRange: 'Apr 02, 2023 - Apr 03, 2023',
-      reason: 'Scheduled medical checkup and rest as advised by doctor.',
-      appliedOnDate: 'Mar 30, 2023',
-      status: 'Approved',
-      applyDays: '2 Days',
-      leaveBalance: '17',
-      approvedBy: 'Emma Clark',
-    },
-    {
-      id: 'lv-003',
-      leaveTitle: 'Personal Work',
-      leaveType: 'Casual Leave',
-      dateRange: 'May 18, 2023 - May 18, 2023',
-      reason: 'Need one day leave for important personal documentation work.',
-      appliedOnDate: 'May 15, 2023',
-      status: 'Pending',
-      applyDays: '1 Day',
-      leaveBalance: '16',
-      approvedBy: 'Waiting',
-    },
-    {
-      id: 'lv-004',
-      leaveTitle: 'Vacation Trip',
-      leaveType: 'Earned Leave',
-      dateRange: 'Jun 01, 2023 - Jun 03, 2023',
-      reason: 'Short vacation planned with family.',
-      appliedOnDate: 'May 22, 2023',
-      status: 'Approved',
-      applyDays: '3 Days',
-      leaveBalance: '13',
-      approvedBy: 'Martin Deo',
-    },
-    {
-      id: 'lv-005',
-      leaveTitle: 'Emergency Leave',
-      leaveType: 'Casual Leave',
-      dateRange: 'Jul 12, 2023 - Jul 13, 2023',
-      reason: 'Unexpected emergency at home.',
-      appliedOnDate: 'Jul 10, 2023',
-      status: 'Canceled',
-      applyDays: '2 Days',
-      leaveBalance: '13',
-      approvedBy: 'HR Team',
-    },
-  ];
+  const [leaveHistory, setLeaveHistory] = useState<LeaveItem[]>([]);
+  const [isLoadingLeaves, setIsLoadingLeaves] = useState(true);
   const [activeFilter, setActiveFilter] = useState<LeaveFilter>('All');
   const [showFilterOptions, setShowFilterOptions] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -617,13 +512,153 @@ function LeavesTab() {
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
   const [isHalfDay, setIsHalfDay] = useState(false);
+  const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
   const [showLeaveTypeOptions, setShowLeaveTypeOptions] = useState(false);
-  const filterOptions: LeaveFilter[] = ['All', 'Approved', 'Pending', 'Canceled'];
+  const filterOptions: LeaveFilter[] = ['All', 'Approved', 'Pending', 'Rejected', 'Canceled'];
   const leaveTypes = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Other'];
 
   const filteredLeaveHistory = leaveHistory.filter(item =>
     activeFilter === 'All' ? true : item.status === activeFilter,
   );
+
+  const formatIsoDate = (isoDate: string) => {
+    if (!isoDate) return '--';
+    const date = new Date(`${isoDate}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return '--';
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    }).format(date);
+  };
+
+  const toInputDate = (isoDate: string) => {
+    const [year, month, day] = String(isoDate || '').split('-');
+    if (!year || !month || !day) return '';
+    return `${day}/${month}/${year}`;
+  };
+
+  const toIsoDate = (inputDate: string) => {
+    const [day, month, year] = String(inputDate || '').split('/').map(part => part.trim());
+    if (!day || !month || !year) return '';
+    const parsed = new Date(`${year}-${month}-${day}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const yyyy = parsed.getFullYear();
+    const mm = `${parsed.getMonth() + 1}`.padStart(2, '0');
+    const dd = `${parsed.getDate()}`.padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const calculateApplyDays = (startIso: string, endIso: string, halfDay: boolean) => {
+    if (halfDay) return '0.5 Day';
+    const start = new Date(`${startIso}T00:00:00`);
+    const end = new Date(`${endIso}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '--';
+    const diff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const days = Math.max(1, diff + 1);
+    return `${days} Day${days > 1 ? 's' : ''}`;
+  };
+
+  const mapLeaveRequestToUi = (item: any): LeaveItem => {
+    const status = (item?.status || 'Pending') as LeaveStatus;
+    return {
+      id: item?.id || '',
+      leaveTitle: item?.leaveTitle || 'Leave Request',
+      leaveType: item?.leaveType || 'Casual Leave',
+      dateRange: `${formatIsoDate(item?.startDate || '')} - ${formatIsoDate(item?.endDate || '')}`,
+      reason: item?.reason || '',
+      appliedOnDate: item?.createdAt ? formatIsoDate(String(item.createdAt).slice(0, 10)) : '--',
+      status,
+      applyDays: calculateApplyDays(item?.startDate || '', item?.endDate || '', Boolean(item?.isHalfDay)),
+      leaveBalance: '--',
+      approvedBy:
+        status === 'Approved' ? 'HR Team'
+          : status === 'Rejected' ? 'Rejected'
+            : status === 'Canceled' ? 'Canceled'
+              : 'Waiting',
+    };
+  };
+
+  const loadLeaveHistory = useCallback(async (showAlertOnError = false) => {
+    const employeeCode = String(employeeProfile?.employeeCode || '').trim();
+    if (!employeeCode) {
+      setLeaveHistory([]);
+      setIsLoadingLeaves(false);
+      return;
+    }
+    try {
+      setIsLoadingLeaves(true);
+      const requests = await listEmployeeLeaveRequests(employeeCode);
+      setLeaveHistory((requests || []).map(mapLeaveRequestToUi));
+    } catch (error: any) {
+      setLeaveHistory([]);
+      if (showAlertOnError) {
+        Alert.alert('Leave Error', error?.message || 'Unable to load leave requests.');
+      }
+    } finally {
+      setIsLoadingLeaves(false);
+    }
+  }, [employeeProfile?.employeeCode]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadLeaveHistory(false);
+      return undefined;
+    }, [loadLeaveHistory]),
+  );
+
+  const leaveStats = useMemo(() => {
+    const approved = leaveHistory.filter(item => item.status === 'Approved').length;
+    const pending = leaveHistory.filter(item => item.status === 'Pending').length;
+    const canceled = leaveHistory.filter(item => item.status === 'Canceled' || item.status === 'Rejected').length;
+    const syntheticBalance = Math.max(0, 12 - approved);
+    return [
+      {
+        key: 'balance',
+        title: 'Leave Balance',
+        value: String(syntheticBalance),
+        subtitle: 'Days Available',
+        icon: 'wallet-outline' as const,
+        iconColor: '#2563eb',
+        iconBg: 'bg-blue-100',
+        subtitleColor: 'text-slate-500',
+        topAccent: 'bg-blue-500',
+      },
+      {
+        key: 'approved',
+        title: 'Leave Approved',
+        value: String(approved),
+        subtitle: 'Approved',
+        icon: 'checkmark-done-outline' as const,
+        iconColor: '#059669',
+        iconBg: 'bg-emerald-100',
+        subtitleColor: 'text-emerald-600',
+        topAccent: 'bg-emerald-500',
+      },
+      {
+        key: 'pending',
+        title: 'Leave Pending',
+        value: String(pending),
+        subtitle: 'Awaiting Review',
+        icon: 'time-outline' as const,
+        iconColor: '#d97706',
+        iconBg: 'bg-amber-100',
+        subtitleColor: 'text-amber-600',
+        topAccent: 'bg-amber-500',
+      },
+      {
+        key: 'canceled',
+        title: 'Leave Canceled',
+        value: String(canceled),
+        subtitle: 'Canceled/Rejected',
+        icon: 'close-circle-outline' as const,
+        iconColor: '#e11d48',
+        iconBg: 'bg-rose-100',
+        subtitleColor: 'text-rose-600',
+        topAccent: 'bg-rose-500',
+      },
+    ];
+  }, [leaveHistory]);
 
   const formatDate = (date: Date) => {
     const day = String(date.getDate()).padStart(2, '0');
@@ -670,7 +705,62 @@ function LeavesTab() {
     if (status === 'Pending') {
       return {bg: 'bg-amber-100', text: 'text-amber-700'};
     }
+    if (status === 'Canceled') {
+      return {bg: 'bg-slate-200', text: 'text-slate-700'};
+    }
     return {bg: 'bg-rose-100', text: 'text-rose-700'};
+  };
+
+  const resetLeaveForm = () => {
+    setLeaveTitle('');
+    setLeaveType('Casual Leave');
+    setStartDate('');
+    setEndDate('');
+    setReason('');
+    setIsHalfDay(false);
+    setShowLeaveTypeOptions(false);
+  };
+
+  const handleSubmitLeaveRequest = async () => {
+    const employeeCode = String(employeeProfile?.employeeCode || '').trim();
+    if (!employeeCode) {
+      Alert.alert('Profile Missing', 'Employee code is missing. Please login again.');
+      return;
+    }
+    if (!leaveTitle.trim()) {
+      Alert.alert('Validation', 'Please enter a leave title.');
+      return;
+    }
+    const startIso = toIsoDate(startDate);
+    const endIso = toIsoDate(endDate);
+    if (!startIso || !endIso) {
+      Alert.alert('Validation', 'Please choose valid start and end dates.');
+      return;
+    }
+    if (new Date(`${endIso}T00:00:00`) < new Date(`${startIso}T00:00:00`)) {
+      Alert.alert('Validation', 'Ending date cannot be before starting date.');
+      return;
+    }
+    try {
+      setIsSubmittingLeave(true);
+      const created = await createLeaveRequest({
+        employeeCode,
+        leaveTitle: leaveTitle.trim(),
+        leaveType,
+        startDate: startIso,
+        endDate: endIso,
+        isHalfDay,
+        reason: reason.trim(),
+      });
+      setLeaveHistory(prev => [mapLeaveRequestToUi(created), ...prev]);
+      setShowApplyModal(false);
+      resetLeaveForm();
+      Alert.alert('Success', 'Leave request submitted successfully.');
+    } catch (error: any) {
+      Alert.alert('Apply Leave Failed', error?.message || 'Unable to submit leave request.');
+    } finally {
+      setIsSubmittingLeave(false);
+    }
   };
 
   if (selectedLeave) {
@@ -892,9 +982,14 @@ function LeavesTab() {
           </View>
 
           <Pressable
-            onPress={() => setShowApplyModal(false)}
-            className="mb-10 items-center rounded-xl bg-blue-600 py-3.5 shadow-sm shadow-blue-500/30">
-            <Text className="text-[15px] font-bold tracking-wide text-white">Submit Leave Request</Text>
+            onPress={handleSubmitLeaveRequest}
+            disabled={isSubmittingLeave}
+            className={`mb-10 items-center rounded-xl py-3.5 shadow-sm ${
+              isSubmittingLeave ? 'bg-blue-400 shadow-blue-300/30' : 'bg-blue-600 shadow-blue-500/30'
+            }`}>
+            <Text className="text-[15px] font-bold tracking-wide text-white">
+              {isSubmittingLeave ? 'Submitting...' : 'Submit Leave Request'}
+            </Text>
           </Pressable>
         </ScrollView>
       </View>
@@ -994,6 +1089,11 @@ function LeavesTab() {
         )}
 
         <View className="mt-4 gap-y-3">
+          {isLoadingLeaves && (
+            <View className="rounded-2xl border border-slate-200/60 bg-white py-6">
+              <Text className="text-center text-sm text-slate-500">Loading leave history...</Text>
+            </View>
+          )}
           {filteredLeaveHistory.map(item => {
             const statusStyle = getStatusStyles(item.status);
 
@@ -1051,10 +1151,10 @@ function LeavesTab() {
           })}
         </View>
 
-        {filteredLeaveHistory.length === 0 && (
-          <View className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white py-6">
+        {!isLoadingLeaves && filteredLeaveHistory.length === 0 && (
+          <View className="mt-3 rounded-2xl py-6">
             <Text className="text-center text-sm text-slate-500">
-              No leave records for this filter.
+              {leaveHistory.length === 0 ? 'No leaves yet.' : 'No leave records for this filter.'}
             </Text>
           </View>
         )}
@@ -1324,7 +1424,9 @@ export default function HomeTabsScreen({onLogout, employeeProfile}: HomeTabsScre
         <Tab.Screen name="Home">
           {(props: any) => <HomeTab {...props} employeeProfile={employeeProfile} />}
         </Tab.Screen>
-        <Tab.Screen name="Leaves" component={LeavesTab} />
+        <Tab.Screen name="Leaves">
+          {() => <LeavesTab employeeProfile={employeeProfile} />}
+        </Tab.Screen>
         <Tab.Screen name="Holidays" component={HolidaysTab} />
         <Tab.Screen name="Profile">
           {(props: any) => <ProfileTab {...props} onLogout={onLogout} employeeProfile={employeeProfile} />}

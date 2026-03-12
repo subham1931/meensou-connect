@@ -7,6 +7,7 @@ type AttendanceRecord = {
   checkOutAt: string | null
   status: string
   workMinutes: number
+  overtimeMinutes: number
 }
 
 function getClient() {
@@ -36,6 +37,7 @@ function mapRow(row: any): AttendanceRecord {
     checkOutAt: row.check_out_at || null,
     status: row.status || "Not Marked",
     workMinutes: Number(row.work_minutes || 0),
+    overtimeMinutes: Number(row.overtime_minutes || 0),
   }
 }
 
@@ -59,7 +61,7 @@ export async function getAttendanceByDate(employeeCode: string, attendanceDate: 
 
   const { data, error } = await client
     .from("attendance_records")
-    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes")
+    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes, overtime_minutes")
     .eq("employee_code", code)
     .eq("attendance_date", date)
     .maybeSingle()
@@ -77,7 +79,7 @@ export async function markCheckIn(employeeCode: string) {
 
   const { data: existing, error: existingError } = await client
     .from("attendance_records")
-    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes")
+    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes, overtime_minutes")
     .eq("employee_code", code)
     .eq("attendance_date", attendanceDate)
     .maybeSingle()
@@ -97,8 +99,10 @@ export async function markCheckIn(employeeCode: string) {
       attendance_date: attendanceDate,
       check_in_at: nowIso,
       status,
+      work_minutes: 0,
+      overtime_minutes: 0,
     }, { onConflict: "employee_code,attendance_date" })
-    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes")
+    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes, overtime_minutes")
     .single()
 
   if (error) throw new Error(error.message || "Unable to check in.")
@@ -112,7 +116,7 @@ export async function markCheckOut(employeeCode: string) {
 
   const { data: current, error: readError } = await client
     .from("attendance_records")
-    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes")
+    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes, overtime_minutes")
     .eq("employee_code", code)
     .eq("attendance_date", toYMD())
     .maybeSingle()
@@ -125,16 +129,18 @@ export async function markCheckOut(employeeCode: string) {
   const workMinutes = inMinutes != null && outMinutes != null && outMinutes > inMinutes
     ? outMinutes - inMinutes
     : 0
+  const overtimeMinutes = outMinutes != null ? Math.max(0, outMinutes - 18 * 60) : 0
 
   const { data, error } = await client
     .from("attendance_records")
     .update({
       check_out_at: nowIso,
       work_minutes: workMinutes,
+      overtime_minutes: overtimeMinutes,
     })
     .eq("employee_code", code)
     .eq("attendance_date", toYMD())
-    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes")
+    .select("employee_code, attendance_date, check_in_at, check_out_at, status, work_minutes, overtime_minutes")
     .single()
 
   if (error) throw new Error(error.message || "Unable to check out.")
